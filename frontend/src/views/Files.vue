@@ -14,6 +14,7 @@
       <el-upload :show-file-list="false" :http-request="uploadFile">
         <el-button>Hochladen</el-button>
       </el-upload>
+      <el-button @click="remoteDownload">Von URL laden</el-button>
     </div>
 
     <el-table :data="entries" v-loading="loading" size="small">
@@ -191,6 +192,13 @@ async function createDir() {
   await http.post('/files/mkdir', { path: join(currentPath.value, mkdirDialog.name) })
   mkdirDialog.visible = false
   mkdirDialog.name = ''
+  list()
+}
+
+async function remoteDownload() {
+  const { value } = await ElMessageBox.prompt('URL (http/https) in das aktuelle Verzeichnis laden', 'Von URL laden')
+  await http.post('/files/download-url', { url: value, dest: currentPath.value })
+  ElMessage.success('Heruntergeladen')
   list()
 }
 

@@ -108,6 +108,16 @@ type CronJob struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// MetricSample is a periodic snapshot of host load persisted for history charts.
+type MetricSample struct {
+	ID          uint    `gorm:"primaryKey" json:"id"`
+	Timestamp   int64   `gorm:"index" json:"timestamp"`
+	CPUPercent  float64 `json:"cpu_percent"`
+	MemPercent  float64 `json:"mem_percent"`
+	Load1       float64 `json:"load1"`
+	DiskPercent float64 `json:"disk_percent"`
+}
+
 // AuditLog records a security-relevant action.
 type AuditLog struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -117,6 +127,64 @@ type AuditLog struct {
 	Detail    string    `gorm:"size:1024" json:"detail"`
 	IP        string    `gorm:"size:64" json:"ip"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// FTPAccount is a virtual FTP user managed via pure-ftpd.
+type FTPAccount struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Username  string    `gorm:"uniqueIndex;size:64;not null" json:"username"`
+	Home      string    `gorm:"size:512;not null" json:"home"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// DNSZone is an authoritative DNS zone served by BIND.
+type DNSZone struct {
+	ID        uint        `gorm:"primaryKey" json:"id"`
+	Domain    string      `gorm:"uniqueIndex;size:255;not null" json:"domain"`
+	NS        string      `gorm:"size:255" json:"ns"`    // primary nameserver
+	Admin     string      `gorm:"size:255" json:"admin"` // admin email (zone SOA)
+	Serial    uint32      `json:"serial"`                // SOA serial
+	Records   []DNSRecord `gorm:"foreignKey:ZoneID" json:"records,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// DNSRecord is a single resource record in a zone.
+type DNSRecord struct {
+	ID       uint   `gorm:"primaryKey" json:"id"`
+	ZoneID   uint   `gorm:"index" json:"zone_id"`
+	Name     string `gorm:"size:255" json:"name"` // "@" or subdomain label
+	Type     string `gorm:"size:16" json:"type"`  // A, AAAA, CNAME, MX, TXT, NS
+	Value    string `gorm:"size:512" json:"value"`
+	TTL      int    `gorm:"default:3600" json:"ttl"`
+	Priority int    `json:"priority"` // for MX
+}
+
+// MailDomain is a virtual mail domain.
+type MailDomain struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Domain    string    `gorm:"uniqueIndex;size:255;not null" json:"domain"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// MailAccount is a virtual mailbox.
+type MailAccount struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Address      string    `gorm:"uniqueIndex;size:320;not null" json:"address"`
+	Domain       string    `gorm:"size:255;not null" json:"domain"`
+	PasswordHash string    `gorm:"size:255" json:"-"`
+	Quota        int       `gorm:"default:0" json:"quota"` // MB, 0 = unlimited
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// ComposeApp is a docker-compose stack deployed by the panel.
+type ComposeApp struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"uniqueIndex;size:64;not null" json:"name"`
+	Dir       string    `gorm:"size:512;not null" json:"dir"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // AllModels returns every model for AutoMigrate.
@@ -130,5 +198,12 @@ func AllModels() []any {
 		&Backup{},
 		&ScheduledBackup{},
 		&Certificate{},
+		&MetricSample{},
+		&FTPAccount{},
+		&DNSZone{},
+		&DNSRecord{},
+		&MailDomain{},
+		&MailAccount{},
+		&ComposeApp{},
 	}
 }

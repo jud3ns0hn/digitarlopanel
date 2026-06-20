@@ -57,11 +57,30 @@
         </div>
       </div>
     </el-card>
+
+    <el-card v-if="auth.isAdmin && panel" shadow="never" style="max-width: 560px; margin-top: 16px">
+      <template #header>Panel-Einstellungen</template>
+      <el-form label-width="180px">
+        <el-form-item label="Datei-Manager-Wurzel"><el-input v-model="panel.file_root" /></el-form-item>
+        <el-form-item label="Backup-Verzeichnis"><el-input v-model="panel.backup_dir" /></el-form-item>
+        <el-form-item label="FTP-Systembenutzer"><el-input v-model="panel.ftp_user" /></el-form-item>
+        <el-form-item label="FTP-Systemgruppe"><el-input v-model="panel.ftp_group" /></el-form-item>
+        <el-form-item label="Listen-Adresse"><el-input v-model="panel.listen" /></el-form-item>
+        <el-form-item label="HTTPS (TLS) aktiv"><el-switch v-model="panel.tls_enabled" /></el-form-item>
+        <el-form-item label="Self-Signed automatisch"><el-switch v-model="panel.tls_auto_self_signed" /></el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="panelSaving" @click="savePanel">Speichern</el-button>
+        </el-form-item>
+      </el-form>
+      <el-alert :closable="false" type="warning" show-icon>
+        Änderungen an Listen-Adresse und TLS werden erst nach einem Neustart des Panels wirksam.
+      </el-alert>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import http, { updateToken } from '../api/client'
 import { useAuthStore } from '../store/auth'
@@ -71,6 +90,37 @@ const pw = reactive({ old: '', new: '', confirm: '' })
 const pwSaving = ref(false)
 const setup = reactive({ secret: '', url: '', code: '' })
 const disablePassword = ref('')
+const panel = ref<any>(null)
+const panelSaving = ref(false)
+
+onMounted(async () => {
+  if (auth.isAdmin) {
+    try {
+      const { data } = await http.get('/settings')
+      panel.value = data
+    } catch {
+      /* non-admin or error */
+    }
+  }
+})
+
+async function savePanel() {
+  panelSaving.value = true
+  try {
+    const { data } = await http.post('/settings', {
+      file_root: panel.value.file_root,
+      backup_dir: panel.value.backup_dir,
+      ftp_user: panel.value.ftp_user,
+      ftp_group: panel.value.ftp_group,
+      listen: panel.value.listen,
+      tls_enabled: panel.value.tls_enabled,
+      tls_auto_self_signed: panel.value.tls_auto_self_signed,
+    })
+    ElMessage.success(data.restart_required ? 'Gespeichert — Neustart für Listen/TLS nötig' : 'Gespeichert')
+  } finally {
+    panelSaving.value = false
+  }
+}
 
 async function changePassword() {
   if (pw.new.length < 10) {

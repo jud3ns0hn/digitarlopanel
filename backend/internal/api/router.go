@@ -32,6 +32,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/system/metrics", s.handleMetrics)
 	read.GET("/system/metrics/stream", s.handleMetricsStream)
 	read.GET("/system/processes", s.handleProcesses)
+	read.GET("/system/history", s.handleMetricsHistory)
 
 	// File manager.
 	read.GET("/files/list", s.handleFileList)
@@ -45,6 +46,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/files/upload", s.handleFileUpload)
 	write.POST("/files/compress", s.handleFileCompress)
 	write.POST("/files/extract", s.handleFileExtract)
+	write.POST("/files/download-url", s.handleRemoteDownload)
 
 	// Software / services catalog.
 	read.GET("/software/list", s.handleSoftwareList)
@@ -95,6 +97,32 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/docker/container", s.handleDockerContainerAction)
 	write.POST("/docker/pull", s.handleDockerPull)
 
+	// Docker Compose app stacks.
+	read.GET("/compose", s.handleComposeList)
+	read.GET("/compose/:id/status", s.handleComposeStatus)
+	write.POST("/compose", s.handleComposeDeploy)
+	write.POST("/compose/:id/down", s.handleComposeDown)
+
+	// FTP accounts.
+	read.GET("/ftp", s.handleFTPList)
+	write.POST("/ftp", s.handleFTPCreate)
+	write.POST("/ftp/:id/password", s.handleFTPPassword)
+	write.DELETE("/ftp/:id", s.handleFTPDelete)
+
+	// DNS zones and records.
+	read.GET("/dns", s.handleDNSZoneList)
+	write.POST("/dns", s.handleDNSZoneCreate)
+	write.DELETE("/dns/:id", s.handleDNSZoneDelete)
+	write.POST("/dns/:id/records", s.handleDNSRecordCreate)
+	write.DELETE("/dns/:id/records/:rid", s.handleDNSRecordDelete)
+
+	// Mail domains and accounts.
+	read.GET("/mail", s.handleMailDomainList)
+	write.POST("/mail/domains", s.handleMailDomainCreate)
+	write.DELETE("/mail/domains/:id", s.handleMailDomainDelete)
+	write.POST("/mail/accounts", s.handleMailAccountCreate)
+	write.DELETE("/mail/accounts/:id", s.handleMailAccountDelete)
+
 	// Logs.
 	read.GET("/logs/journal", s.handleLogJournal)
 	read.GET("/logs/file", s.handleLogFile)
@@ -110,6 +138,10 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/schedules", s.handleScheduleCreate)
 	write.POST("/schedules/:id/toggle", s.handleScheduleToggle)
 	write.DELETE("/schedules/:id", s.handleScheduleDelete)
+
+	// Panel settings (admin only).
+	admin.GET("/settings", s.handleSettingsGet)
+	admin.POST("/settings", s.handleSettingsUpdate)
 
 	// Audit log (read-only).
 	read.GET("/audit", s.handleAuditList)

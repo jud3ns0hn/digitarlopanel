@@ -11,6 +11,7 @@ import (
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/acme"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/dockerctl"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/firewall"
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/ftp"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/osinfo"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/pkgmgr"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/runner"
@@ -21,6 +22,7 @@ import (
 // Server bundles the dependencies shared by all HTTP handlers.
 type Server struct {
 	cfg          *config.Config
+	cfgPath      string
 	db           *gorm.DB
 	os           osinfo.Info
 	runner       runner.Runner
@@ -28,20 +30,23 @@ type Server struct {
 	service      *service.Controller
 	firewall     *firewall.Manager
 	docker       *dockerctl.Manager
+	ftp          *ftp.Manager
 	issuer       *acme.Issuer
 	certDir      string
 	scheduler    *Scheduler
 	loginLimiter *rateLimiter
 }
 
-// NewServer wires up the server dependencies.
-func NewServer(cfg *config.Config, db *gorm.DB) *Server {
+// NewServer wires up the server dependencies. cfgPath is where settings changes
+// are persisted (may be empty to disable persistence).
+func NewServer(cfg *config.Config, db *gorm.DB, cfgPath string) *Server {
 	osi := osinfo.Detect()
 	run := runner.Exec{}
 	certDir := filepath.Join(cfg.DataDir, "certs")
 	accountDir := filepath.Join(cfg.DataDir, "acme-accounts")
 	s := &Server{
 		cfg:          cfg,
+		cfgPath:      cfgPath,
 		db:           db,
 		os:           osi,
 		runner:       run,
@@ -49,12 +54,14 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 		service:      service.New(run),
 		firewall:     firewall.New(run),
 		docker:       dockerctl.New(run),
+		ftp:          ftp.New(run, cfg.FTPUser, cfg.FTPGroup),
 		issuer:       acme.NewIssuer(accountDir, certDir, false),
 		certDir:      certDir,
 		loginLimiter: newRateLimiter(10, time.Minute),
 	}
 	s.scheduler = NewScheduler(s)
 	s.scheduler.Start()
+	s.startMonitorSampler()
 	return s
 }
 

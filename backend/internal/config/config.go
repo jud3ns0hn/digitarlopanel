@@ -21,6 +21,11 @@ type Config struct {
 	// BackupDir is where archive backups are written.
 	BackupDir string `json:"backup_dir"`
 
+	// FTPUser/FTPGroup are the system user/group that pure-ftpd virtual users
+	// map to. They must exist on the host for FTP management to work.
+	FTPUser  string `json:"ftp_user"`
+	FTPGroup string `json:"ftp_group"`
+
 	// TLS configures HTTPS for the panel itself.
 	TLSEnabled        bool   `json:"tls_enabled"`
 	TLSCert           string `json:"tls_cert"`
@@ -40,6 +45,8 @@ func Default() *Config {
 		DataDir:   "/var/lib/digitarlopanel",
 		FileRoot:  "/",
 		BackupDir: "/var/backups/digitarlopanel",
+		FTPUser:   "ftpuser",
+		FTPGroup:  "ftpgroup",
 	}
 }
 
@@ -71,6 +78,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.BackupDir == "" {
 		cfg.BackupDir = Default().BackupDir
+	}
+	if cfg.FTPUser == "" {
+		cfg.FTPUser = Default().FTPUser
+	}
+	if cfg.FTPGroup == "" {
+		cfg.FTPGroup = Default().FTPGroup
 	}
 	if cfg.JWTSecret == "" {
 		secret, err := randomSecret(32)

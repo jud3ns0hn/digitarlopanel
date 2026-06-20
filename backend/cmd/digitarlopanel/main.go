@@ -43,7 +43,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "============================================================")
 	}
 
-	srv := api.NewServer(cfg, db)
+	srv := api.NewServer(cfg, db, *configPath)
 	handler := srv.Handler(web.FS())
 
 	httpServer := &http.Server{

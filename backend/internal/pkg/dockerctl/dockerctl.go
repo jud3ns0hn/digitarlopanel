@@ -134,6 +134,41 @@ func (m *Manager) ContainerAction(ctx context.Context, id, action string) (strin
 	return out, nil
 }
 
+// ComposeUp deploys a compose project from dir in detached mode.
+func (m *Manager) ComposeUp(ctx context.Context, dir, project string) (string, error) {
+	if !validName(project) {
+		return "", fmt.Errorf("invalid project name")
+	}
+	res, err := m.runner.Run(ctx, "docker", "compose", "--project-directory", dir, "-p", project, "up", "-d")
+	out := res.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("docker compose up: %w", err)
+	}
+	return out, nil
+}
+
+// ComposeDown stops and removes a compose project.
+func (m *Manager) ComposeDown(ctx context.Context, dir, project string) (string, error) {
+	if !validName(project) {
+		return "", fmt.Errorf("invalid project name")
+	}
+	res, err := m.runner.Run(ctx, "docker", "compose", "--project-directory", dir, "-p", project, "down")
+	out := res.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("docker compose down: %w", err)
+	}
+	return out, nil
+}
+
+// ComposePs returns the status of a compose project's services.
+func (m *Manager) ComposePs(ctx context.Context, dir, project string) (string, error) {
+	if !validName(project) {
+		return "", fmt.Errorf("invalid project name")
+	}
+	res, err := m.runner.Run(ctx, "docker", "compose", "--project-directory", dir, "-p", project, "ps")
+	return res.CombinedOutput(), err
+}
+
 // Pull downloads an image by reference.
 func (m *Manager) Pull(ctx context.Context, image string) (string, error) {
 	if !validName(image) {

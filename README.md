@@ -21,10 +21,11 @@ Binärdatei** mit eingebettetem Web-Frontend.
 
 ### Verwaltung
 - **Dashboard** — Live-Monitoring (CPU, RAM, Load, Disk, Netz, Uptime) per
-  WebSocket mit ECharts, plus Top-Prozesse.
+  WebSocket mit ECharts, Top-Prozesse und **persistente Verlaufs-Charts**
+  (1h/6h/24h/7d).
 - **Datei-Manager** — Browsen, anlegen/umbenennen/löschen, Up-/Download,
-  Editor, chmod, **Zippen/Entpacken** (Zip-Slip-geschützt) — mit
-  Path-Traversal-Schutz.
+  **Download von URL**, Editor, chmod, **Zippen/Entpacken** (Zip-Slip-geschützt)
+  — mit Path-Traversal-Schutz.
 - **Software & Dienste** — Cross-Distro-Installation und systemd-Steuerung
   (Nginx, MariaDB, Redis, PHP-FPM); zusätzlich generische systemd-Unit-Verwaltung.
 - **Websites** — Nginx-vhosts anlegen/aktivieren/löschen, **PHP-Version pro
@@ -35,16 +36,17 @@ Binärdatei** mit eingebettetem Web-Frontend.
   mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3).
 - **Cron-Jobs** — geplante Aufgaben (Sync nach `/etc/cron.d`).
 - **Docker** — Container auflisten/steuern, Images auflisten/ziehen.
+- **App-Stacks** — Docker-Compose-Stacks deployen/stoppen (eigenes YAML).
+- **FTP** — virtuelle pure-ftpd-Konten anlegen/verwalten.
+- **DNS** — BIND-Zonen und Records (A/AAAA/CNAME/MX/TXT/NS) verwalten.
+- **Mail** — virtuelle Postfix/Dovecot-Domains und Postfächer.
 - **Firewall** — ufw/firewalld: Status, Ports freigeben/sperren.
 - **Backups** — tar.gz von Dateien und mysqldump von Datenbanken, plus
   **geplante Backups** (interner Cron-Scheduler mit Aufbewahrung).
 - **Logs** — journalctl je Unit und Tail von Dateien unter `/var/log`.
 - **Web-Terminal** — PTY-Shell über WebSocket (xterm.js), nur Admin, auditiert.
 - **Benutzerverwaltung** — Benutzer/Rollen anlegen und verwalten (nur Admin).
-
-### Geplant (nächste Iterationen)
-
-FTP-Konten · persistente Monitoring-Historie · DNS-/Mailserver-Verwaltung.
+- **Panel-Einstellungen** — Konfiguration im UI ändern (nur Admin).
 
 ## Architektur
 

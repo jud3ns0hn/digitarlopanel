@@ -23,6 +23,12 @@ type Runner interface {
 	Run(ctx context.Context, name string, args ...string) (Result, error)
 }
 
+// InputRunner is an optional extension for runners that can feed stdin to a
+// command (used for tools that read secrets from stdin, e.g. pure-pw).
+type InputRunner interface {
+	RunInput(ctx context.Context, stdin string, name string, args ...string) (Result, error)
+}
+
 // Exec is the production Runner backed by os/exec.
 type Exec struct {
 	// Timeout caps the duration of a single command. Zero means 5 minutes.
@@ -31,6 +37,11 @@ type Exec struct {
 
 // Run executes name with args and captures stdout/stderr.
 func (e Exec) Run(ctx context.Context, name string, args ...string) (Result, error) {
+	return e.RunInput(ctx, "", name, args...)
+}
+
+// RunInput executes name with args, optionally writing stdin first.
+func (e Exec) RunInput(ctx context.Context, stdin string, name string, args ...string) (Result, error) {
 	timeout := e.Timeout
 	if timeout == 0 {
 		timeout = 5 * time.Minute
@@ -42,6 +53,9 @@ func (e Exec) Run(ctx context.Context, name string, args ...string) (Result, err
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 
 	err := cmd.Run()
 	res := Result{
@@ -74,4 +88,9 @@ func (m *Mock) Run(_ context.Context, name string, args ...string) (Result, erro
 		return m.Responder(name, args...)
 	}
 	return Result{}, nil
+}
+
+// RunInput records the call (ignoring stdin contents) and behaves like Run.
+func (m *Mock) RunInput(ctx context.Context, _ string, name string, args ...string) (Result, error) {
+	return m.Run(ctx, name, args...)
 }

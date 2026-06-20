@@ -30,6 +30,21 @@
     <el-card shadow="never" style="margin-top: 16px">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>Verlauf</span>
+          <el-radio-group v-model="historyWindow" size="small" @change="loadHistory">
+            <el-radio-button :value="3600">1h</el-radio-button>
+            <el-radio-button :value="21600">6h</el-radio-button>
+            <el-radio-button :value="86400">24h</el-radio-button>
+            <el-radio-button :value="604800">7d</el-radio-button>
+          </el-radio-group>
+        </div>
+      </template>
+      <div ref="histChart" style="height: 300px"></div>
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
           <span>Top-Prozesse (nach Speicher)</span>
           <el-button link @click="loadProcesses">Aktualisieren</el-button>
         </div>
@@ -82,10 +97,13 @@ const host = ref<any>(null)
 const processes = ref<any[]>([])
 const cpuChart = ref<HTMLElement>()
 const memChart = ref<HTMLElement>()
+const histChart = ref<HTMLElement>()
+const historyWindow = ref(3600)
 const fmt = formatBytes
 
 let cpuInstance: echarts.ECharts | null = null
 let memInstance: echarts.ECharts | null = null
+let histInstance: echarts.ECharts | null = null
 let ws: WebSocket | null = null
 const cpuSeries: number[] = []
 const memSeries: number[] = []
@@ -143,6 +161,23 @@ async function loadProcesses() {
   processes.value = data
 }
 
+async function loadHistory() {
+  const { data } = await http.get('/system/history', { params: { window: historyWindow.value } })
+  const times = data.map((s: any) => new Date(s.timestamp * 1000).toLocaleString())
+  histInstance?.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { data: ['CPU %', 'RAM %', 'Disk %'] },
+    grid: { left: 45, right: 16, top: 40, bottom: 30 },
+    xAxis: { type: 'category', data: times, axisLabel: { show: false } },
+    yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%' } },
+    series: [
+      { name: 'CPU %', type: 'line', smooth: true, showSymbol: false, data: data.map((s: any) => s.cpu_percent?.toFixed(1)) },
+      { name: 'RAM %', type: 'line', smooth: true, showSymbol: false, data: data.map((s: any) => s.mem_percent?.toFixed(1)) },
+      { name: 'Disk %', type: 'line', smooth: true, showSymbol: false, data: data.map((s: any) => s.disk_percent?.toFixed(1)) },
+    ],
+  })
+}
+
 onMounted(async () => {
   const { data } = await http.get('/system/host')
   host.value = data
@@ -150,8 +185,10 @@ onMounted(async () => {
   await nextTick()
   cpuInstance = echarts.init(cpuChart.value!)
   memInstance = echarts.init(memChart.value!)
+  histInstance = echarts.init(histChart.value!)
   cpuInstance.setOption(baseLineOption('CPU-Auslastung', '#409eff'))
   memInstance.setOption(baseLineOption('Speicher-Auslastung', '#67c23a'))
+  loadHistory()
   connect()
   window.addEventListener('resize', onResize)
 })
@@ -159,6 +196,7 @@ onMounted(async () => {
 function onResize() {
   cpuInstance?.resize()
   memInstance?.resize()
+  histInstance?.resize()
 }
 
 onBeforeUnmount(() => {
@@ -167,5 +205,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
   cpuInstance?.dispose()
   memInstance?.dispose()
+  histInstance?.dispose()
 })
 </script>
