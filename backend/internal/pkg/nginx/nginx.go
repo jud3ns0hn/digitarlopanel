@@ -1,0 +1,111 @@
+// Package nginx renders and writes virtual host configuration files and
+// reloads the nginx service.
+package nginx
+
+import (
+	"bytes"
+	"fmt"
+	"os"
+	"path/filepath"
+	"text/template"
+
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/osinfo"
+)
+
+// VHost describes the inputs to a server block.
+type VHost struct {
+	Domain string
+	Root   string
+}
+
+const vhostTemplate = `# Managed by DigitarloPanel - do not edit by hand
+server {
+    listen 80;
+    listen [::]:80;
+    server_name {{ .Domain }};
+    root {{ .Root }};
+    index index.html index.htm index.php;
+
+    access_log /var/log/nginx/{{ .Domain }}.access.log;
+    error_log  /var/log/nginx/{{ .Domain }}.error.log;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+`
+
+var tmpl = template.Must(template.New("vhost").Parse(vhostTemplate))
+
+// Render produces the nginx config text for a vhost.
+func Render(v VHost) (string, error) {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, v); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// confDir returns the directory where vhost files live for the given family.
+// Debian uses sites-available with a sites-enabled symlink; RHEL uses conf.d.
+func confDir(family osinfo.Family) (available, enabled string) {
+	switch family {
+	case osinfo.FamilyDebian:
+		return "/etc/nginx/sites-available", "/etc/nginx/sites-enabled"
+	default:
+		return "/etc/nginx/conf.d", "/etc/nginx/conf.d"
+	}
+}
+
+// ConfPath returns the on-disk path of a vhost's primary config file.
+func ConfPath(family osinfo.Family, domain string) string {
+	available, _ := confDir(family)
+	if family == osinfo.FamilyDebian {
+		return filepath.Join(available, domain+".conf")
+	}
+	return filepath.Join(available, domain+".conf")
+}
+
+// Write renders and persists a vhost, creating the document root and (on
+// Debian) the sites-enabled symlink. It does not reload nginx.
+func Write(family osinfo.Family, v VHost) error {
+	content, err := Render(v)
+	if err != nil {
+		return err
+	}
+	available, enabled := confDir(family)
+	if err := os.MkdirAll(available, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(v.Root, 0o755); err != nil {
+		return fmt.Errorf("create root: %w", err)
+	}
+
+	confPath := ConfPath(family, v.Domain)
+	if err := os.WriteFile(confPath, []byte(content), 0o644); err != nil {
+		return err
+	}
+
+	if family == osinfo.FamilyDebian && enabled != available {
+		link := filepath.Join(enabled, v.Domain+".conf")
+		_ = os.Remove(link)
+		if err := os.Symlink(confPath, link); err != nil {
+			return fmt.Errorf("enable site: %w", err)
+		}
+	}
+	return nil
+}
+
+// Remove deletes a vhost's config file and (on Debian) its symlink.
+func Remove(family osinfo.Family, domain string) error {
+	available, enabled := confDir(family)
+	_ = os.Remove(filepath.Join(enabled, domain+".conf"))
+	if available != enabled {
+		_ = os.Remove(filepath.Join(available, domain+".conf"))
+	}
+	return nil
+}
