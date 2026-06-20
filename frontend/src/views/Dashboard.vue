@@ -28,6 +28,26 @@
     </el-row>
 
     <el-card shadow="never" style="margin-top: 16px">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>Top-Prozesse (nach Speicher)</span>
+          <el-button link @click="loadProcesses">Aktualisieren</el-button>
+        </div>
+      </template>
+      <el-table :data="processes" size="small" max-height="320">
+        <el-table-column prop="pid" label="PID" width="100" />
+        <el-table-column prop="name" label="Name" />
+        <el-table-column prop="user" label="Benutzer" width="140" />
+        <el-table-column label="CPU %" width="120">
+          <template #default="{ row }">{{ row.cpu.toFixed(1) }}</template>
+        </el-table-column>
+        <el-table-column label="Speicher %" width="120">
+          <template #default="{ row }">{{ row.memory.toFixed(1) }}</template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-card shadow="never" style="margin-top: 16px">
       <template #header>Festplatten</template>
       <el-table :data="metrics?.disks || []" size="small">
         <el-table-column prop="mount" label="Mountpoint" />
@@ -59,6 +79,7 @@ interface Metrics {
 
 const metrics = ref<Metrics | null>(null)
 const host = ref<any>(null)
+const processes = ref<any[]>([])
 const cpuChart = ref<HTMLElement>()
 const memChart = ref<HTMLElement>()
 const fmt = formatBytes
@@ -117,9 +138,15 @@ function connect() {
   }
 }
 
+async function loadProcesses() {
+  const { data } = await http.get('/system/processes')
+  processes.value = data
+}
+
 onMounted(async () => {
   const { data } = await http.get('/system/host')
   host.value = data
+  loadProcesses()
   await nextTick()
   cpuInstance = echarts.init(cpuChart.value!)
   memInstance = echarts.init(memChart.value!)

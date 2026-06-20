@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/config"
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/dockerctl"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/firewall"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/osinfo"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/pkgmgr"
@@ -24,6 +25,7 @@ type Server struct {
 	pkg          *pkgmgr.Manager
 	service      *service.Controller
 	firewall     *firewall.Manager
+	docker       *dockerctl.Manager
 	loginLimiter *rateLimiter
 }
 
@@ -39,6 +41,7 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 		pkg:          pkgmgr.New(osi.Family, run),
 		service:      service.New(run),
 		firewall:     firewall.New(run),
+		docker:       dockerctl.New(run),
 		loginLimiter: newRateLimiter(10, time.Minute),
 	}
 }

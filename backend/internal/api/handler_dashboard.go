@@ -16,6 +16,15 @@ func (s *Server) handleHostInfo(c *gin.Context) {
 	})
 }
 
+func (s *Server) handleProcesses(c *gin.Context) {
+	procs, err := system.TopProcesses(c.Request.Context(), 20)
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, procs)
+}
+
 func (s *Server) handleMetrics(c *gin.Context) {
 	m, err := system.Collect(c.Request.Context(), 500*time.Millisecond)
 	if err != nil {

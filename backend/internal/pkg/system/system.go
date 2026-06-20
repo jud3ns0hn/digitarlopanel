@@ -13,6 +13,8 @@ import (
 	"github.com/shirou/gopsutil/v3/load"
 	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/shirou/gopsutil/v3/net"
+	"github.com/shirou/gopsutil/v3/process"
+	"sort"
 )
 
 // Metrics is a point-in-time snapshot of host resource usage.
@@ -98,6 +100,45 @@ func Collect(ctx context.Context, interval time.Duration) (Metrics, error) {
 		m.UptimeSecs = up
 	}
 	return m, nil
+}
+
+// ProcessInfo summarizes a running process for the dashboard.
+type ProcessInfo struct {
+	PID    int32   `json:"pid"`
+	Name   string  `json:"name"`
+	CPU    float64 `json:"cpu"`
+	Memory float32 `json:"memory"`
+	User   string  `json:"user"`
+}
+
+// TopProcesses returns up to limit processes sorted by memory usage descending.
+func TopProcesses(ctx context.Context, limit int) ([]ProcessInfo, error) {
+	procs, err := process.ProcessesWithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ProcessInfo, 0, len(procs))
+	for _, p := range procs {
+		name, _ := p.NameWithContext(ctx)
+		if name == "" {
+			continue
+		}
+		memPct, _ := p.MemoryPercentWithContext(ctx)
+		cpuPct, _ := p.CPUPercentWithContext(ctx)
+		username, _ := p.UsernameWithContext(ctx)
+		out = append(out, ProcessInfo{
+			PID:    p.Pid,
+			Name:   name,
+			CPU:    cpuPct,
+			Memory: memPct,
+			User:   username,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Memory > out[j].Memory })
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
 }
 
 // Host returns static host information.

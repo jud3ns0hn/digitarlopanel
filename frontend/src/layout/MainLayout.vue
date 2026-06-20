@@ -10,9 +10,11 @@
         <el-menu-item index="/websites"><el-icon><Link /></el-icon><span>Websites</span></el-menu-item>
         <el-menu-item index="/databases"><el-icon><Coin /></el-icon><span>Datenbanken</span></el-menu-item>
         <el-menu-item index="/cron"><el-icon><Timer /></el-icon><span>Cron-Jobs</span></el-menu-item>
+        <el-menu-item index="/docker"><el-icon><Ship /></el-icon><span>Docker</span></el-menu-item>
         <el-menu-item index="/firewall"><el-icon><Lock /></el-icon><span>Firewall</span></el-menu-item>
         <el-menu-item index="/backups"><el-icon><FolderChecked /></el-icon><span>Backups</span></el-menu-item>
         <el-menu-item index="/logs"><el-icon><Tickets /></el-icon><span>Logs</span></el-menu-item>
+        <el-menu-item v-if="auth.isAdmin" index="/terminal"><el-icon><Monitor /></el-icon><span>Terminal</span></el-menu-item>
         <el-menu-item v-if="auth.isAdmin" index="/users"><el-icon><User /></el-icon><span>Benutzer</span></el-menu-item>
         <el-menu-item index="/audit"><el-icon><Document /></el-icon><span>Audit-Log</span></el-menu-item>
         <el-menu-item index="/settings"><el-icon><Setting /></el-icon><span>Einstellungen</span></el-menu-item>

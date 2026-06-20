@@ -31,6 +31,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/system/host", s.handleHostInfo)
 	read.GET("/system/metrics", s.handleMetrics)
 	read.GET("/system/metrics/stream", s.handleMetricsStream)
+	read.GET("/system/processes", s.handleProcesses)
 
 	// File manager.
 	read.GET("/files/list", s.handleFileList)
@@ -75,6 +76,11 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/firewall/allow", s.handleFirewallAllow)
 	write.POST("/firewall/deny", s.handleFirewallDeny)
 
+	// Docker.
+	read.GET("/docker", s.handleDockerStatus)
+	write.POST("/docker/container", s.handleDockerContainerAction)
+	write.POST("/docker/pull", s.handleDockerPull)
+
 	// Logs.
 	read.GET("/logs/journal", s.handleLogJournal)
 	read.GET("/logs/file", s.handleLogFile)
@@ -87,6 +93,9 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 
 	// Audit log (read-only).
 	read.GET("/audit", s.handleAuditList)
+
+	// Web terminal (admin only; grants a privileged shell).
+	admin.GET("/terminal", s.handleTerminal)
 
 	// User management (admin only).
 	admin.GET("/users", s.handleUserList)
