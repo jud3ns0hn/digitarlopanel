@@ -18,6 +18,11 @@ func (s *Server) handleSettingsGet(c *gin.Context) {
 		"ftp_group":            s.cfg.FTPGroup,
 		"tls_enabled":          s.cfg.TLSEnabled,
 		"tls_auto_self_signed": s.cfg.TLSAutoSelfSigned,
+		"ai_provider":          s.cfg.AIProvider,
+		"ai_base_url":          s.cfg.AIBaseURL,
+		"ai_model":             s.cfg.AIModel,
+		"ai_key_set":           s.cfg.AIAPIKey != "",
+		"mcp_token":            s.cfg.MCPToken,
 		"os":                   s.os,
 	})
 }
@@ -30,6 +35,10 @@ type settingsUpdateRequest struct {
 	Listen            *string `json:"listen"`
 	TLSEnabled        *bool   `json:"tls_enabled"`
 	TLSAutoSelfSigned *bool   `json:"tls_auto_self_signed"`
+	AIProvider        *string `json:"ai_provider"`
+	AIBaseURL         *string `json:"ai_base_url"`
+	AIAPIKey          *string `json:"ai_api_key"`
+	AIModel           *string `json:"ai_model"`
 }
 
 // handleSettingsUpdate persists configuration changes. Changes to listen and TLS
@@ -60,6 +69,18 @@ func (s *Server) handleSettingsUpdate(c *gin.Context) {
 	}
 	if req.TLSAutoSelfSigned != nil {
 		s.cfg.TLSAutoSelfSigned = *req.TLSAutoSelfSigned
+	}
+	if req.AIProvider != nil {
+		s.cfg.AIProvider = *req.AIProvider
+	}
+	if req.AIBaseURL != nil {
+		s.cfg.AIBaseURL = *req.AIBaseURL
+	}
+	if req.AIAPIKey != nil && *req.AIAPIKey != "" {
+		s.cfg.AIAPIKey = *req.AIAPIKey
+	}
+	if req.AIModel != nil {
+		s.cfg.AIModel = *req.AIModel
 	}
 
 	if s.cfgPath != "" {

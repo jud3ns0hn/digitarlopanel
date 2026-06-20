@@ -26,6 +26,22 @@ type Config struct {
 	FTPUser  string `json:"ftp_user"`
 	FTPGroup string `json:"ftp_group"`
 
+	// AI assistant configuration. Provider is "anthropic" (Claude via the
+	// official SDK) or "openai" (any OpenAI-compatible Chat Completions API,
+	// including OpenAI, Ollama, Mistral, Groq, LM Studio, vLLM, ...).
+	AIProvider string `json:"ai_provider"`
+	// AIBaseURL overrides the API endpoint. For Ollama use
+	// "http://localhost:11434/v1". Leave empty for the provider default.
+	AIBaseURL string `json:"ai_base_url"`
+	// AIAPIKey authenticates to the AI provider (a dummy value is fine for a
+	// local Ollama instance).
+	AIAPIKey string `json:"ai_api_key"`
+	// AIModel is the model id, e.g. "claude-opus-4-8", "gpt-4o", "llama3.1".
+	AIModel string `json:"ai_model"`
+	// MCPToken authenticates external MCP clients (Claude Code/Desktop) to the
+	// panel's MCP server. Generated on first run.
+	MCPToken string `json:"mcp_token"`
+
 	// TLS configures HTTPS for the panel itself.
 	TLSEnabled        bool   `json:"tls_enabled"`
 	TLSCert           string `json:"tls_cert"`
@@ -41,12 +57,14 @@ func (c *Config) DBPath() string {
 // Default returns a configuration with sensible defaults.
 func Default() *Config {
 	return &Config{
-		Listen:    ":8088",
-		DataDir:   "/var/lib/digitarlopanel",
-		FileRoot:  "/",
-		BackupDir: "/var/backups/digitarlopanel",
-		FTPUser:   "ftpuser",
-		FTPGroup:  "ftpgroup",
+		Listen:     ":8088",
+		DataDir:    "/var/lib/digitarlopanel",
+		FileRoot:   "/",
+		BackupDir:  "/var/backups/digitarlopanel",
+		FTPUser:    "ftpuser",
+		FTPGroup:   "ftpgroup",
+		AIProvider: "anthropic",
+		AIModel:    "claude-opus-4-8",
 	}
 }
 
@@ -84,6 +102,19 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.FTPGroup == "" {
 		cfg.FTPGroup = Default().FTPGroup
+	}
+	if cfg.AIProvider == "" {
+		cfg.AIProvider = Default().AIProvider
+	}
+	if cfg.AIModel == "" {
+		cfg.AIModel = Default().AIModel
+	}
+	if cfg.MCPToken == "" {
+		token, err := randomSecret(24)
+		if err != nil {
+			return nil, err
+		}
+		cfg.MCPToken = token
 	}
 	if cfg.JWTSecret == "" {
 		secret, err := randomSecret(32)

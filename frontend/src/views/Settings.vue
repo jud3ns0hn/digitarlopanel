@@ -76,6 +76,48 @@
         Änderungen an Listen-Adresse und TLS werden erst nach einem Neustart des Panels wirksam.
       </el-alert>
     </el-card>
+
+    <el-card v-if="auth.isAdmin && panel" shadow="never" style="max-width: 560px; margin-top: 16px">
+      <template #header>KI-Assistent</template>
+      <el-form label-width="180px">
+        <el-form-item label="Provider">
+          <el-select v-model="panel.ai_provider" style="width: 100%">
+            <el-option label="Anthropic (Claude)" value="anthropic" />
+            <el-option label="OpenAI-kompatibel / Ollama" value="openai" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Modell">
+          <el-input v-model="panel.ai_model" placeholder="claude-opus-4-8, gpt-4o, llama3.1 …" />
+        </el-form-item>
+        <el-form-item label="Base-URL (optional)">
+          <el-input v-model="panel.ai_base_url" placeholder="Ollama: http://localhost:11434/v1" />
+        </el-form-item>
+        <el-form-item label="API-Key">
+          <el-input v-model="aiKey" type="password" show-password
+            :placeholder="panel.ai_key_set ? '•••••• (gesetzt – leer lassen zum Behalten)' : 'API-Key'" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="panelSaving" @click="saveAI">Speichern</el-button>
+        </el-form-item>
+      </el-form>
+      <el-alert :closable="false" type="info" show-icon>
+        Für Ollama: Provider „OpenAI-kompatibel", Base-URL <code>http://localhost:11434/v1</code>, Modell z.B. <code>llama3.1</code>
+        (ein beliebiger API-Key genügt). Tool-Nutzung erfordert ein Modell mit Function-Calling.
+      </el-alert>
+    </el-card>
+
+    <el-card v-if="auth.isAdmin && panel" shadow="never" style="max-width: 560px; margin-top: 16px">
+      <template #header>MCP-Server (für externe Agenten)</template>
+      <p style="color: #606266">
+        Externe Agenten (Claude Code/Desktop) können den Server über MCP verwalten. Endpunkt:
+      </p>
+      <el-input :model-value="mcpUrl" readonly style="margin-bottom: 8px"><template #prepend>URL</template></el-input>
+      <el-input :model-value="panel.mcp_token" readonly type="password" show-password><template #prepend>Token</template></el-input>
+      <el-alert :closable="false" type="info" show-icon style="margin-top: 8px">
+        Authentifizierung per <code>Authorization: Bearer &lt;Token&gt;</code>. Stellt dieselben sicheren Tools bereit
+        wie der eingebaute Assistent (nur Lesen + sichere Steueraktionen, keine Löschungen).
+      </el-alert>
+    </el-card>
   </div>
 </template>
 
@@ -92,6 +134,26 @@ const setup = reactive({ secret: '', url: '', code: '' })
 const disablePassword = ref('')
 const panel = ref<any>(null)
 const panelSaving = ref(false)
+const aiKey = ref('')
+const mcpUrl = `${location.origin}/mcp`
+
+async function saveAI() {
+  panelSaving.value = true
+  try {
+    await http.post('/settings', {
+      ai_provider: panel.value.ai_provider,
+      ai_base_url: panel.value.ai_base_url,
+      ai_model: panel.value.ai_model,
+      ai_api_key: aiKey.value,
+    })
+    ElMessage.success('KI-Einstellungen gespeichert')
+    aiKey.value = ''
+    const { data } = await http.get('/settings')
+    panel.value = data
+  } finally {
+    panelSaving.value = false
+  }
+}
 
 onMounted(async () => {
   if (auth.isAdmin) {

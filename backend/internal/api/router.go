@@ -143,6 +143,10 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	admin.GET("/settings", s.handleSettingsGet)
 	admin.POST("/settings", s.handleSettingsUpdate)
 
+	// AI assistant.
+	read.GET("/ai/status", s.handleAIStatus)
+	read.POST("/ai/chat", s.handleAIChat)
+
 	// Audit log (read-only).
 	read.GET("/audit", s.handleAuditList)
 

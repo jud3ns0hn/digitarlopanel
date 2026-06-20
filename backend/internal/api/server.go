@@ -75,6 +75,10 @@ func (s *Server) Handler(webFS fs.FS) http.Handler {
 	api := r.Group("/api")
 	s.registerRoutes(api)
 
+	// MCP server endpoint (JSON-RPC) for external agents; authenticated by the
+	// MCP token rather than a user session.
+	r.POST("/mcp", s.handleMCP)
+
 	s.registerSPA(r, webFS)
 	return r
 }

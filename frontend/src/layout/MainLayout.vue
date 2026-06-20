@@ -4,6 +4,7 @@
       <div class="brand">DigitarloPanel</div>
       <el-menu :default-active="activeRoute" router class="menu">
         <el-menu-item index="/dashboard"><el-icon><Odometer /></el-icon><span>Dashboard</span></el-menu-item>
+        <el-menu-item index="/assistant"><el-icon><ChatDotRound /></el-icon><span>KI-Assistent</span></el-menu-item>
         <el-menu-item index="/files"><el-icon><Folder /></el-icon><span>Dateien</span></el-menu-item>
         <el-menu-item index="/software"><el-icon><Box /></el-icon><span>Software</span></el-menu-item>
         <el-menu-item index="/services"><el-icon><Operation /></el-icon><span>Dienste</span></el-menu-item>
