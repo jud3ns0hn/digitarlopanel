@@ -165,6 +165,31 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	admin.GET("/settings", s.handleSettingsGet)
 	admin.POST("/settings", s.handleSettingsUpdate)
 
+	// System toolbox (timezone, hostname, swap, SSH info).
+	read.GET("/toolbox/system", s.handleToolboxSystem)
+	read.GET("/toolbox/timezones", s.handleToolboxTimezones)
+	read.GET("/toolbox/ssh", s.handleToolboxSSH)
+	write.POST("/toolbox/timezone", s.handleToolboxSetTimezone)
+	write.POST("/toolbox/hostname", s.handleToolboxSetHostname)
+	write.POST("/toolbox/swap", s.handleToolboxSwap)
+
+	// Fail2ban (intrusion prevention).
+	read.GET("/fail2ban", s.handleFail2banStatus)
+	read.GET("/fail2ban/jail", s.handleFail2banJail)
+	write.POST("/fail2ban/ban", s.handleFail2banBan)
+	write.POST("/fail2ban/unban", s.handleFail2banUnban)
+	write.POST("/fail2ban/install", s.handleFail2banInstall)
+
+	// Supervisor (process control).
+	read.GET("/supervisor", s.handleSupervisorStatus)
+	write.POST("/supervisor/action", s.handleSupervisorAction)
+	write.POST("/supervisor/install", s.handleSupervisorInstall)
+
+	// ClamAV (malware scanning).
+	read.GET("/clamav", s.handleClamAVStatus)
+	write.POST("/clamav/scan", s.handleClamAVScan)
+	write.POST("/clamav/install", s.handleClamAVInstall)
+
 	// AI assistant.
 	read.GET("/ai/status", s.handleAIStatus)
 	read.POST("/ai/chat", s.handleAIChat)
