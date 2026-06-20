@@ -43,6 +43,8 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/files/delete", s.handleFileDelete)
 	write.POST("/files/chmod", s.handleFileChmod)
 	write.POST("/files/upload", s.handleFileUpload)
+	write.POST("/files/compress", s.handleFileCompress)
+	write.POST("/files/extract", s.handleFileExtract)
 
 	// Software / services catalog.
 	read.GET("/software/list", s.handleSoftwareList)

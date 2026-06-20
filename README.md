@@ -6,22 +6,43 @@ Binärdatei** mit eingebettetem Web-Frontend.
 
 ## Funktionen (aktueller Stand)
 
-- **Authentifizierung** — Login mit JWT, bcrypt-Passwörter, automatisch
-  generierter Admin-Account beim ersten Start, Login-Rate-Limit, Audit-Log.
-- **Dashboard** — Live-Monitoring (CPU, RAM, Load, Festplatten, Netzwerk,
-  Uptime) per WebSocket mit ECharts-Diagrammen.
-- **Datei-Manager** — Verzeichnisse durchsuchen, anlegen, umbenennen, löschen,
-  hoch-/herunterladen, Text-Editor, Rechte (chmod) — mit Path-Traversal-Schutz.
-- **Software & Dienste** — Cross-Distro-Installation und systemd-Steuerung von
-  Nginx, MariaDB, Redis, PHP-FPM (apt bzw. dnf/yum).
-- **Websites** — Nginx-vhosts anlegen, aktivieren/deaktivieren, löschen.
+### Sicherheit
+- **Authentifizierung** — JWT, bcrypt, automatisch generierter Admin beim
+  ersten Start.
+- **2FA (TOTP)** — Einrichtung per Authenticator-App, erzwungen beim Login.
+- **RBAC** — Rollen admin / operator / viewer mit serverseitiger Durchsetzung.
+- **Token-Revocation** — sofortiges Invalidieren aller Tokens (Logout,
+  Passwort-/Rollenwechsel) über eine Token-Version im JWT.
+- **Brute-Force-Schutz** — Account-Lockout nach Fehlversuchen, Login-Rate-Limit,
+  zeitkonstante Benutzersuche gegen Enumeration.
+- **Härtung** — strikte Security-Header inkl. Content-Security-Policy auf jeder
+  Antwort; optionales Panel-TLS mit Auto-Self-Signed.
+- **Audit-Log** — protokolliert alle sicherheitsrelevanten Aktionen.
+
+### Verwaltung
+- **Dashboard** — Live-Monitoring (CPU, RAM, Load, Disk, Netz, Uptime) per
+  WebSocket mit ECharts, plus Top-Prozesse.
+- **Datei-Manager** — Browsen, anlegen/umbenennen/löschen, Up-/Download,
+  Editor, chmod, **Zippen/Entpacken** (Zip-Slip-geschützt) — mit
+  Path-Traversal-Schutz.
+- **Software & Dienste** — Cross-Distro-Installation und systemd-Steuerung
+  (Nginx, MariaDB, Redis, PHP-FPM); zusätzlich generische systemd-Unit-Verwaltung.
+- **Websites** — Nginx-vhosts anlegen/aktivieren/löschen.
 - **Datenbanken** — MySQL/MariaDB-Datenbanken und -Benutzer verwalten.
-- **Cron-Jobs** — geplante Aufgaben verwalten (synchronisiert nach `/etc/cron.d`).
+- **SSL** — Let's-Encrypt-Zertifikate (ACME HTTP-01) und Self-Signed je Domain,
+  mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3).
+- **Cron-Jobs** — geplante Aufgaben (Sync nach `/etc/cron.d`).
+- **Docker** — Container auflisten/steuern, Images auflisten/ziehen.
+- **Firewall** — ufw/firewalld: Status, Ports freigeben/sperren.
+- **Backups** — tar.gz von Dateien und mysqldump von Datenbanken, Download.
+- **Logs** — journalctl je Unit und Tail von Dateien unter `/var/log`.
+- **Web-Terminal** — PTY-Shell über WebSocket (xterm.js), nur Admin, auditiert.
+- **Benutzerverwaltung** — Benutzer/Rollen anlegen und verwalten (nur Admin).
 
 ### Geplant (nächste Iterationen)
 
-SSL / Let's Encrypt · Web-Terminal · Firewall-UI · Backups · RBAC / mehrere
-Benutzer · 2FA.
+PHP-Versionsverwaltung pro Site · FTP-Konten · geplante Backups · persistente
+Monitoring-Historie · Reverse-Proxy-Assistent.
 
 ## Architektur
 
@@ -90,10 +111,17 @@ Beim ersten Start wird `config.json` erzeugt:
 
 | Feld         | Bedeutung                                                  |
 |--------------|------------------------------------------------------------|
-| `listen`     | Bind-Adresse, Standard `:8088`                             |
-| `data_dir`   | Speicherort der SQLite-DB, Standard `/var/lib/digitarlopanel` |
-| `jwt_secret` | wird beim ersten Start zufällig erzeugt                    |
-| `file_root`  | Wurzel für den Datei-Manager (`/` = gesamtes Dateisystem)  |
+| `listen`        | Bind-Adresse, Standard `:8088`                          |
+| `data_dir`      | Speicherort der SQLite-DB, Standard `/var/lib/digitarlopanel` |
+| `jwt_secret`    | wird beim ersten Start zufällig erzeugt                 |
+| `file_root`     | Wurzel für den Datei-Manager (`/` = gesamtes Dateisystem) |
+| `backup_dir`    | Zielverzeichnis für Backups, Standard `/var/backups/digitarlopanel` |
+| `tls_enabled`   | HTTPS fürs Panel aktivieren                             |
+| `tls_auto_self_signed` | Self-Signed-Zertifikat automatisch erzeugen      |
+| `tls_cert` / `tls_key` | Pfade zu eigenem Zertifikat/Schlüssel (optional)  |
+
+Für HTTPS direkt im Panel: `tls_enabled` und `tls_auto_self_signed` auf `true`
+setzen — beim Start wird ein Self-Signed-Zertifikat im `data_dir` erzeugt.
 
 ## Sicherheitshinweise
 

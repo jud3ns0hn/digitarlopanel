@@ -34,6 +34,8 @@
         <template #default="{ row }">
           <el-button v-if="!row.is_dir" link type="primary" @click="edit(row)">Bearbeiten</el-button>
           <el-button v-if="!row.is_dir" link @click="download(row)">Download</el-button>
+          <el-button link @click="compress(row)">Zippen</el-button>
+          <el-button v-if="isArchive(row)" link @click="extract(row)">Entpacken</el-button>
           <el-button link @click="chmod(row)">Rechte</el-button>
           <el-button link @click="rename(row)">Umbenennen</el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
@@ -158,6 +160,23 @@ async function remove(row: Entry) {
   await ElMessageBox.confirm(`"${row.name}" wirklich löschen?`, 'Bestätigen', { type: 'warning' })
   await http.post('/files/delete', { path: row.path })
   ElMessage.success('Gelöscht')
+  list()
+}
+
+function isArchive(row: Entry) {
+  return !row.is_dir && /\.(zip|tar\.gz|tgz)$/.test(row.name)
+}
+
+async function compress(row: Entry) {
+  const dest = join(currentPath.value, row.name + '.zip')
+  await http.post('/files/compress', { paths: [row.path], dest })
+  ElMessage.success('Archiv erstellt')
+  list()
+}
+
+async function extract(row: Entry) {
+  await http.post('/files/extract', { path: row.path, dest: currentPath.value })
+  ElMessage.success('Entpackt')
   list()
 }
 
