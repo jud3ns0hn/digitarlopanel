@@ -64,6 +64,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/websites/:id/toggle", s.handleWebsiteToggle)
 	write.POST("/websites/:id/php", s.handleWebsitePHP)
 	write.POST("/websites/:id/proxy", s.handleWebsiteProxy)
+	write.POST("/websites/:id/config", s.handleWebsiteConfig)
 	write.DELETE("/websites/:id", s.handleWebsiteDelete)
 
 	// PHP versions.

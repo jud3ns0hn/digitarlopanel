@@ -68,7 +68,7 @@ func (s *Server) handleWebsitePHP(c *gin.Context) {
 		serverError(c, err)
 		return
 	}
-	if err := s.writeSiteVHost(c, site); err != nil {
+	if err := s.writeSiteVHost(c.Request.Context(), site); err != nil {
 		serverError(c, err)
 		return
 	}

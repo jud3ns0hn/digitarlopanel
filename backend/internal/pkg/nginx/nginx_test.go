@@ -50,6 +50,32 @@ func TestRenderSSLAndPHP(t *testing.T) {
 	}
 }
 
+func TestRenderRedirect(t *testing.T) {
+	out, err := Render(VHost{Domain: "old.com", Root: "/srv", RedirectURL: "https://new.com"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "return 301 https://new.com$request_uri;") {
+		t.Errorf("missing redirect: %s", out)
+	}
+}
+
+func TestRenderBasicAuthAndExtra(t *testing.T) {
+	out, err := Render(VHost{
+		Domain: "x.com", Root: "/srv",
+		AuthFile: "/etc/htp", ExtraConfig: "client_max_body_size 100m;",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "auth_basic_user_file /etc/htp;") {
+		t.Error("missing auth_basic_user_file")
+	}
+	if !strings.Contains(out, "client_max_body_size 100m;") {
+		t.Error("missing extra config")
+	}
+}
+
 func TestRenderProxy(t *testing.T) {
 	out, err := Render(VHost{Domain: "app.com", Root: "/srv", ProxyPass: "http://127.0.0.1:3000"})
 	if err != nil {

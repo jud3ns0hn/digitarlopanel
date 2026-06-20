@@ -29,6 +29,7 @@
         <template #default="{ row }">
           <el-button link @click="setPHP(row)">PHP</el-button>
           <el-button link @click="setProxy(row)">Proxy</el-button>
+          <el-button link @click="setConfig(row)">Konfig</el-button>
           <el-button link @click="toggle(row)">{{ row.enabled ? 'Deaktivieren' : 'Aktivieren' }}</el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
         </template>
@@ -63,6 +64,27 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="configDialog.visible" title="Erweiterte Konfiguration" width="560px">
+      <el-form label-width="150px">
+        <el-form-item label="301-Redirect">
+          <el-input v-model="configDialog.redirect" placeholder="https://ziel.de (leer = aus)" />
+        </el-form-item>
+        <el-form-item label="Basic-Auth Benutzer">
+          <el-input v-model="configDialog.basic_auth_user" placeholder="leer = kein Schutz" />
+        </el-form-item>
+        <el-form-item label="Basic-Auth Passwort">
+          <el-input v-model="configDialog.basic_auth_password" type="password" show-password placeholder="leer = unverändert" />
+        </el-form-item>
+        <el-form-item label="Eigene Nginx-Config">
+          <el-input v-model="configDialog.extra_config" type="textarea" :rows="5" placeholder="z.B. client_max_body_size 100m;" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="configDialog.visible = false">Abbrechen</el-button>
+        <el-button type="primary" @click="saveConfig">Speichern</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="phpDialog.visible" title="PHP-Version zuweisen" width="420px">
       <el-form label-width="120px">
         <el-form-item label="Version">
@@ -92,6 +114,35 @@ const saving = ref(false)
 const dialog = reactive({ visible: false, domain: '', root: '' })
 const phpDialog = reactive({ visible: false, id: 0, version: '' })
 const proxyDialog = reactive({ visible: false, id: 0, target: '' })
+const configDialog = reactive({
+  visible: false,
+  id: 0,
+  redirect: '',
+  basic_auth_user: '',
+  basic_auth_password: '',
+  extra_config: '',
+})
+
+function setConfig(row: any) {
+  configDialog.id = row.id
+  configDialog.redirect = row.redirect || ''
+  configDialog.basic_auth_user = row.basic_auth_user || ''
+  configDialog.basic_auth_password = ''
+  configDialog.extra_config = row.extra_config || ''
+  configDialog.visible = true
+}
+
+async function saveConfig() {
+  await http.post(`/websites/${configDialog.id}/config`, {
+    redirect: configDialog.redirect,
+    basic_auth_user: configDialog.basic_auth_user,
+    basic_auth_password: configDialog.basic_auth_password,
+    extra_config: configDialog.extra_config,
+  })
+  ElMessage.success('Konfiguration gespeichert')
+  configDialog.visible = false
+  await load()
+}
 
 function setProxy(row: any) {
   proxyDialog.id = row.id

@@ -50,6 +50,12 @@ func (sc *Scheduler) Reload() {
 			log.Printf("scheduler: invalid schedule %q for %q: %v", sch.Schedule, sch.Name, err)
 		}
 	}
+	// Daily Let's Encrypt renewal check at 03:30.
+	_, _ = sc.cron.AddFunc("30 3 * * *", func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		sc.server.renewExpiringCerts(ctx)
+	})
 	sc.cron.Start()
 }
 

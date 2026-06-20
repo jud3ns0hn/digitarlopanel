@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"net/http"
@@ -53,8 +54,8 @@ func (s *Server) handleSSLIssue(c *gin.Context) {
 		return
 	}
 
-	cert := s.upsertCert(req.Domain, "letsencrypt", issued.CertPath, issued.KeyPath)
-	if err := s.writeSiteVHost(c, site); err != nil {
+	cert := s.upsertCert(req.Domain, "letsencrypt", req.Email, issued.CertPath, issued.KeyPath)
+	if err := s.writeSiteVHost(c.Request.Context(), site); err != nil {
 		serverError(c, err)
 		return
 	}
@@ -89,12 +90,12 @@ func (s *Server) handleSSLSelfSigned(c *gin.Context) {
 		return
 	}
 
-	cert := s.upsertCert(req.Domain, "selfsigned", certPath, keyPath)
+	cert := s.upsertCert(req.Domain, "selfsigned", "", certPath, keyPath)
 
 	// Bind to the website if one exists.
 	var site model.Website
 	if err := s.db.Where("domain = ?", req.Domain).First(&site).Error; err == nil {
-		if err := s.writeSiteVHost(c, site); err != nil {
+		if err := s.writeSiteVHost(c.Request.Context(), site); err != nil {
 			serverError(c, err)
 			return
 		}
@@ -117,15 +118,15 @@ func (s *Server) handleSSLDelete(c *gin.Context) {
 	// Rewrite the site without SSL if it exists (PHP settings are preserved).
 	var site model.Website
 	if err := s.db.Where("domain = ?", cert.Domain).First(&site).Error; err == nil {
-		_ = s.writeSiteVHost(c, site)
+		_ = s.writeSiteVHost(c.Request.Context(), site)
 	}
 	s.audit(c, "ssl_delete", cert.Domain)
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 // upsertCert stores or updates a certificate record, reading its expiry.
-func (s *Server) upsertCert(domain, typ, certPath, keyPath string) model.Certificate {
-	cert := model.Certificate{Domain: domain, Type: typ, CertPath: certPath, KeyPath: keyPath}
+func (s *Server) upsertCert(domain, typ, email, certPath, keyPath string) model.Certificate {
+	cert := model.Certificate{Domain: domain, Type: typ, Email: email, CertPath: certPath, KeyPath: keyPath}
 	if exp, err := certNotAfter(certPath); err == nil {
 		cert.NotAfter = &exp
 	}
@@ -133,9 +134,35 @@ func (s *Server) upsertCert(domain, typ, certPath, keyPath string) model.Certifi
 	if err := s.db.Where("domain = ?", domain).First(&existing).Error; err == nil {
 		cert.ID = existing.ID
 		cert.CreatedAt = existing.CreatedAt
+		if email == "" {
+			cert.Email = existing.Email
+		}
 	}
 	s.db.Save(&cert)
 	return cert
+}
+
+// renewExpiringCerts re-issues Let's Encrypt certificates within 30 days of
+// expiry. Called daily by the scheduler.
+func (s *Server) renewExpiringCerts(ctx context.Context) {
+	var certs []model.Certificate
+	s.db.Where("type = ?", "letsencrypt").Find(&certs)
+	cutoff := time.Now().Add(30 * 24 * time.Hour)
+	for _, cert := range certs {
+		if cert.NotAfter == nil || cert.NotAfter.After(cutoff) || cert.Email == "" {
+			continue
+		}
+		var site model.Website
+		if err := s.db.Where("domain = ?", cert.Domain).First(&site).Error; err != nil {
+			continue
+		}
+		issued, err := s.issuer.Obtain(cert.Email, []string{cert.Domain}, site.Root)
+		if err != nil {
+			continue
+		}
+		s.upsertCert(cert.Domain, "letsencrypt", cert.Email, issued.CertPath, issued.KeyPath)
+		_ = s.writeSiteVHost(ctx, site)
+	}
 }
 
 // certNotAfter parses a PEM certificate file and returns its expiry.

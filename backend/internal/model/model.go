@@ -40,6 +40,7 @@ type Certificate struct {
 	ID        uint       `gorm:"primaryKey" json:"id"`
 	Domain    string     `gorm:"uniqueIndex;size:255;not null" json:"domain"`
 	Type      string     `gorm:"size:32;not null" json:"type"` // letsencrypt | selfsigned
+	Email     string     `gorm:"size:255" json:"email"`        // ACME account email (for renewal)
 	CertPath  string     `gorm:"size:512" json:"cert_path"`
 	KeyPath   string     `gorm:"size:512" json:"key_path"`
 	NotAfter  *time.Time `json:"not_after,omitempty"`
@@ -81,10 +82,17 @@ type Website struct {
 	PHPVersion string `gorm:"size:16" json:"php_version"`
 	// ProxyPass, when set, turns the site into a reverse proxy to this upstream
 	// (e.g. http://127.0.0.1:3000) instead of serving files.
-	ProxyPass string    `gorm:"size:255" json:"proxy_pass"`
-	Enabled   bool      `gorm:"default:true" json:"enabled"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ProxyPass string `gorm:"size:255" json:"proxy_pass"`
+	// Redirect, when set, makes the whole site issue a 301 to this URL.
+	Redirect string `gorm:"size:255" json:"redirect"`
+	// ExtraConfig is an admin-provided raw nginx snippet for the server block.
+	ExtraConfig string `gorm:"size:4096" json:"extra_config"`
+	// BasicAuthUser/Hash protect the site with HTTP Basic auth when set.
+	BasicAuthUser string    `gorm:"size:64" json:"basic_auth_user"`
+	BasicAuthHash string    `gorm:"size:255" json:"-"`
+	Enabled       bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // DatabaseInstance records a MySQL/MariaDB database created via the panel.
