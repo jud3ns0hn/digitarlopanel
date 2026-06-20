@@ -13,6 +13,7 @@
         <el-menu-item index="/ssl"><el-icon><Key /></el-icon><span>SSL</span></el-menu-item>
         <el-menu-item index="/cron"><el-icon><Timer /></el-icon><span>Cron-Jobs</span></el-menu-item>
         <el-menu-item index="/docker"><el-icon><Ship /></el-icon><span>Docker</span></el-menu-item>
+        <el-menu-item index="/appstore"><el-icon><Goods /></el-icon><span>App-Store</span></el-menu-item>
         <el-menu-item index="/compose"><el-icon><Files /></el-icon><span>App-Stacks</span></el-menu-item>
         <el-menu-item index="/ftp"><el-icon><Upload /></el-icon><span>FTP</span></el-menu-item>
         <el-menu-item index="/dns"><el-icon><Connection /></el-icon><span>DNS</span></el-menu-item>

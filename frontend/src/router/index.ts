@@ -19,6 +19,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'ssl', name: 'ssl', component: () => import('../views/SSL.vue') },
       { path: 'cron', name: 'cron', component: () => import('../views/Cron.vue') },
       { path: 'docker', name: 'docker', component: () => import('../views/Docker.vue') },
+      { path: 'appstore', name: 'appstore', component: () => import('../views/AppStore.vue') },
       { path: 'compose', name: 'compose', component: () => import('../views/ComposeApps.vue') },
       { path: 'ftp', name: 'ftp', component: () => import('../views/FTP.vue') },
       { path: 'dns', name: 'dns', component: () => import('../views/DNS.vue') },

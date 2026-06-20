@@ -35,6 +35,14 @@ Binärdatei** mit eingebettetem Web-Frontend.
 - **SSL** — Let's-Encrypt-Zertifikate (ACME HTTP-01) und Self-Signed je Domain,
   mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3).
 - **Cron-Jobs** — geplante Aufgaben (Sync nach `/etc/cron.d`).
+- **KI-Assistent** — Chat mit Tool-Use über die Panel-Funktionen (Metriken,
+  Dienste, Logs, Backups …); Provider **Anthropic/Claude**, **OpenAI** oder
+  **Ollama (self-hosted)** und andere OpenAI-kompatible Dienste.
+- **MCP-Server** — stellt dieselben sicheren Tools als MCP (JSON-RPC) für
+  externe Agenten (Claude Code/Desktop) bereit, per Token authentifiziert.
+- **App-Store** — kuratierter Docker-Katalog mit Kategorien (KI & Agenten:
+  Ollama, Open WebUI, Flowise, AnythingLLM, LibreChat; Automatisierung: n8n,
+  Node-RED; Datenbanken; Monitoring; Produktivität) zur Ein-Klick-Installation.
 - **Docker** — Container auflisten/steuern, Images auflisten/ziehen.
 - **App-Stacks** — Docker-Compose-Stacks deployen/stoppen (eigenes YAML).
 - **FTP** — virtuelle pure-ftpd-Konten anlegen/verwalten.

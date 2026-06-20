@@ -97,6 +97,10 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/docker/container", s.handleDockerContainerAction)
 	write.POST("/docker/pull", s.handleDockerPull)
 
+	// App store (curated one-click docker apps).
+	read.GET("/appstore", s.handleAppStoreList)
+	write.POST("/appstore/install", s.handleAppStoreInstall)
+
 	// Docker Compose app stacks.
 	read.GET("/compose", s.handleComposeList)
 	read.GET("/compose/:id/status", s.handleComposeStatus)
