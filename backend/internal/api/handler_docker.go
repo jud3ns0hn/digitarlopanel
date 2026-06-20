@@ -21,6 +21,52 @@ func (s *Server) handleDockerStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"available": true, "containers": containers, "images": images})
 }
 
+func (s *Server) handleDockerNetworks(c *gin.Context) {
+	nets, err := s.docker.Networks(c.Request.Context())
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, nets)
+}
+
+func (s *Server) handleDockerVolumes(c *gin.Context) {
+	vols, err := s.docker.Volumes(c.Request.Context())
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, vols)
+}
+
+func (s *Server) handleDockerLogs(c *gin.Context) {
+	out, err := s.docker.ContainerLogs(c.Request.Context(), c.Query("id"), 200)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "output": out})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"logs": out})
+}
+
+func (s *Server) handleDockerStats(c *gin.Context) {
+	out, err := s.docker.ContainerStats(c.Request.Context(), c.Query("id"))
+	if err != nil {
+		serverError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"stats": out})
+}
+
+func (s *Server) handleDockerPrune(c *gin.Context) {
+	out, err := s.docker.Prune(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "output": out})
+		return
+	}
+	s.audit(c, "docker_prune", "")
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "output": out})
+}
+
 type dockerActionRequest struct {
 	ID     string `json:"id" binding:"required"`
 	Action string `json:"action" binding:"required"`

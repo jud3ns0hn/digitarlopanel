@@ -11,6 +11,7 @@
         <el-input v-model="pullImage" placeholder="Image ziehen, z.B. nginx:latest" style="width: 320px" />
         <el-button type="primary" :loading="pulling" @click="pull">Pull</el-button>
         <el-button @click="load">Aktualisieren</el-button>
+        <el-button type="warning" @click="prune">Aufräumen (Prune)</el-button>
       </div>
 
       <el-card shadow="never" style="margin-bottom: 16px">
@@ -25,18 +26,41 @@
           </el-table-column>
           <el-table-column prop="status" label="Detail" />
           <el-table-column prop="ports" label="Ports" />
-          <el-table-column label="Aktionen" width="300">
+          <el-table-column label="Aktionen" width="360">
             <template #default="{ row }">
               <el-button link type="success" @click="action(row, 'start')">Start</el-button>
               <el-button link @click="action(row, 'stop')">Stop</el-button>
               <el-button link @click="action(row, 'restart')">Neustart</el-button>
+              <el-button link @click="showLogs(row)">Logs</el-button>
               <el-button link type="danger" @click="remove(row)">Entfernen</el-button>
             </template>
           </el-table-column>
         </el-table>
       </el-card>
 
-      <el-card shadow="never">
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-card shadow="never">
+            <template #header>Netzwerke</template>
+            <el-table :data="networks" size="small">
+              <el-table-column prop="name" label="Name" />
+              <el-table-column prop="driver" label="Driver" width="110" />
+              <el-table-column prop="scope" label="Scope" width="100" />
+            </el-table>
+          </el-card>
+        </el-col>
+        <el-col :span="12">
+          <el-card shadow="never">
+            <template #header>Volumes</template>
+            <el-table :data="volumes" size="small">
+              <el-table-column prop="name" label="Name" />
+              <el-table-column prop="driver" label="Driver" width="110" />
+            </el-table>
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <el-card shadow="never" style="margin-top: 16px">
         <template #header>Images</template>
         <el-table :data="data?.images || []" size="small">
           <el-table-column prop="repository" label="Repository" />
@@ -45,21 +69,48 @@
         </el-table>
       </el-card>
     </template>
+
+    <el-dialog v-model="logsDialog.visible" :title="`Logs: ${logsDialog.name}`" width="70%">
+      <pre style="max-height: 480px; overflow: auto; font-size: 12px">{{ logsDialog.text }}</pre>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '../api/client'
 
 const data = ref<any>(null)
+const networks = ref<any[]>([])
+const volumes = ref<any[]>([])
 const pullImage = ref('')
 const pulling = ref(false)
+const logsDialog = reactive({ visible: false, name: '', text: '' })
 
 async function load() {
   const res = await http.get('/docker')
   data.value = res.data
+  if (res.data.available) {
+    const [n, v] = await Promise.all([http.get('/docker/networks'), http.get('/docker/volumes')])
+    networks.value = n.data
+    volumes.value = v.data
+  }
+}
+
+async function showLogs(row: any) {
+  const { data: res } = await http.get('/docker/logs', { params: { id: row.id } })
+  logsDialog.name = row.name
+  logsDialog.text = res.logs || '(keine Logs)'
+  logsDialog.visible = true
+}
+
+async function prune() {
+  await ElMessageBox.confirm('Ungenutzte Container, Netzwerke, Images und Build-Cache entfernen?', 'Aufräumen', { type: 'warning' })
+  const { data: res } = await http.post('/docker/prune')
+  ElMessage.success('Aufgeräumt')
+  console.log(res.output)
+  await load()
 }
 
 async function action(row: any, act: string) {

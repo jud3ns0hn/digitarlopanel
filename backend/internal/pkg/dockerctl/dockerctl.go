@@ -134,6 +134,87 @@ func (m *Manager) ContainerAction(ctx context.Context, id, action string) (strin
 	return out, nil
 }
 
+// Network is a normalized docker network summary.
+type Network struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Driver string `json:"driver"`
+	Scope  string `json:"scope"`
+}
+
+// Volume is a normalized docker volume summary.
+type Volume struct {
+	Name       string `json:"name"`
+	Driver     string `json:"driver"`
+	Mountpoint string `json:"mountpoint"`
+}
+
+// Networks lists docker networks.
+func (m *Manager) Networks(ctx context.Context) ([]Network, error) {
+	res, err := m.runner.Run(ctx, "docker", "network", "ls", "--no-trunc", "--format", "{{json .}}")
+	if err != nil {
+		return nil, fmt.Errorf("docker network ls: %s", res.CombinedOutput())
+	}
+	var out []Network
+	for _, line := range strings.Split(strings.TrimSpace(res.Stdout), "\n") {
+		if line == "" {
+			continue
+		}
+		var raw struct{ ID, Name, Driver, Scope string }
+		if json.Unmarshal([]byte(line), &raw) == nil {
+			out = append(out, Network{ID: raw.ID, Name: raw.Name, Driver: raw.Driver, Scope: raw.Scope})
+		}
+	}
+	return out, nil
+}
+
+// Volumes lists docker volumes.
+func (m *Manager) Volumes(ctx context.Context) ([]Volume, error) {
+	res, err := m.runner.Run(ctx, "docker", "volume", "ls", "--format", "{{json .}}")
+	if err != nil {
+		return nil, fmt.Errorf("docker volume ls: %s", res.CombinedOutput())
+	}
+	var out []Volume
+	for _, line := range strings.Split(strings.TrimSpace(res.Stdout), "\n") {
+		if line == "" {
+			continue
+		}
+		var raw struct{ Name, Driver, Mountpoint string }
+		if json.Unmarshal([]byte(line), &raw) == nil {
+			out = append(out, Volume{Name: raw.Name, Driver: raw.Driver, Mountpoint: raw.Mountpoint})
+		}
+	}
+	return out, nil
+}
+
+// ContainerLogs returns the last n log lines of a container.
+func (m *Manager) ContainerLogs(ctx context.Context, id string, lines int) (string, error) {
+	if !validName(id) {
+		return "", fmt.Errorf("invalid container id")
+	}
+	res, err := m.runner.Run(ctx, "docker", "logs", "--tail", fmt.Sprint(lines), id)
+	return res.CombinedOutput(), err
+}
+
+// ContainerStats returns a one-shot resource snapshot for a container.
+func (m *Manager) ContainerStats(ctx context.Context, id string) (string, error) {
+	if !validName(id) {
+		return "", fmt.Errorf("invalid container id")
+	}
+	res, err := m.runner.Run(ctx, "docker", "stats", "--no-stream", "--format", "{{json .}}", id)
+	return strings.TrimSpace(res.CombinedOutput()), err
+}
+
+// Prune removes unused docker data (containers, networks, images, build cache).
+func (m *Manager) Prune(ctx context.Context) (string, error) {
+	res, err := m.runner.Run(ctx, "docker", "system", "prune", "-f")
+	out := res.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("docker prune: %w", err)
+	}
+	return out, nil
+}
+
 // ComposeUp deploys a compose project from dir in detached mode.
 func (m *Manager) ComposeUp(ctx context.Context, dir, project string) (string, error) {
 	if !validName(project) {

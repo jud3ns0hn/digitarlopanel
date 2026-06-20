@@ -70,10 +70,22 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/php", s.handlePHPList)
 	write.POST("/php/install", s.handlePHPInstall)
 
-	// Databases.
+	// Databases (MySQL/MariaDB).
 	read.GET("/databases", s.handleDatabaseList)
 	write.POST("/databases", s.handleDatabaseCreate)
 	write.DELETE("/databases/:id", s.handleDatabaseDelete)
+
+	// PostgreSQL.
+	read.GET("/postgres", s.handlePostgresList)
+	write.POST("/postgres", s.handlePostgresCreate)
+	write.DELETE("/postgres/:id", s.handlePostgresDelete)
+
+	// Redis.
+	read.GET("/redis/info", s.handleRedisInfo)
+	read.GET("/redis/keys", s.handleRedisKeys)
+	read.GET("/redis/get", s.handleRedisGet)
+	write.POST("/redis/set", s.handleRedisSet)
+	write.DELETE("/redis/key", s.handleRedisDelete)
 
 	// Cron jobs.
 	read.GET("/cron", s.handleCronList)
@@ -94,8 +106,13 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 
 	// Docker.
 	read.GET("/docker", s.handleDockerStatus)
+	read.GET("/docker/networks", s.handleDockerNetworks)
+	read.GET("/docker/volumes", s.handleDockerVolumes)
+	read.GET("/docker/logs", s.handleDockerLogs)
+	read.GET("/docker/stats", s.handleDockerStats)
 	write.POST("/docker/container", s.handleDockerContainerAction)
 	write.POST("/docker/pull", s.handleDockerPull)
+	write.POST("/docker/prune", s.handleDockerPrune)
 
 	// App store (curated one-click docker apps).
 	read.GET("/appstore", s.handleAppStoreList)

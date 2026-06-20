@@ -97,6 +97,15 @@ type DatabaseInstance struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// PostgresInstance records a PostgreSQL database created via the panel.
+type PostgresInstance struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"uniqueIndex;size:64;not null" json:"name"`
+	Username  string    `gorm:"size:64;not null" json:"username"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // CronJob is a scheduled task synced to the host crontab.
 type CronJob struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -187,6 +196,45 @@ type ComposeApp struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// UptimeMonitor periodically checks an HTTP(S) endpoint.
+type UptimeMonitor struct {
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	Name       string     `gorm:"size:128;not null" json:"name"`
+	URL        string     `gorm:"size:512;not null" json:"url"`
+	IntervalS  int        `gorm:"default:60" json:"interval_s"`
+	Enabled    bool       `gorm:"default:true" json:"enabled"`
+	LastStatus string     `gorm:"size:32" json:"last_status"` // up | down
+	LastCode   int        `json:"last_code"`
+	LastMS     int64      `json:"last_ms"`
+	LastCheck  *time.Time `json:"last_check,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+// AlertRule fires a notification when a metric crosses a threshold.
+type AlertRule struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	Metric    string     `gorm:"size:32;not null" json:"metric"`  // cpu | memory | disk
+	Threshold float64    `json:"threshold"`                       // percent
+	Channel   string     `gorm:"size:32;not null" json:"channel"` // email | webhook
+	Target    string     `gorm:"size:512;not null" json:"target"` // email address or webhook URL
+	Enabled   bool       `gorm:"default:true" json:"enabled"`
+	LastFired *time.Time `json:"last_fired,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+// BackupDestination is a remote target for uploading backups.
+type BackupDestination struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"size:128;not null" json:"name"`
+	Type      string    `gorm:"size:32;not null" json:"type"` // s3 | sftp | webdav
+	Endpoint  string    `gorm:"size:512" json:"endpoint"`     // S3 endpoint / host / webdav url
+	Bucket    string    `gorm:"size:255" json:"bucket"`       // S3 bucket / remote dir
+	AccessKey string    `gorm:"size:255" json:"access_key"`   // S3 key / sftp user / webdav user
+	SecretKey string    `gorm:"size:512" json:"-"`            // S3 secret / sftp password / webdav password
+	Region    string    `gorm:"size:64" json:"region"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // AllModels returns every model for AutoMigrate.
 func AllModels() []any {
 	return []any{
@@ -205,5 +253,9 @@ func AllModels() []any {
 		&MailDomain{},
 		&MailAccount{},
 		&ComposeApp{},
+		&PostgresInstance{},
+		&UptimeMonitor{},
+		&AlertRule{},
+		&BackupDestination{},
 	}
 }
