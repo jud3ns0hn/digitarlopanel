@@ -153,7 +153,14 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/backups", s.handleBackupList)
 	read.GET("/backups/:id/download", s.handleBackupDownload)
 	write.POST("/backups", s.handleBackupCreate)
+	write.POST("/backups/:id/upload", s.handleBackupUpload)
 	write.DELETE("/backups/:id", s.handleBackupDelete)
+
+	// Remote backup destinations (S3 / SFTP / WebDAV).
+	read.GET("/destinations", s.handleDestinationList)
+	write.POST("/destinations", s.handleDestinationCreate)
+	write.POST("/destinations/:id/test", s.handleDestinationTest)
+	write.DELETE("/destinations/:id", s.handleDestinationDelete)
 
 	// Scheduled backups.
 	read.GET("/schedules", s.handleScheduleList)

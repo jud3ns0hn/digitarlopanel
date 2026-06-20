@@ -16,9 +16,10 @@
       <el-table-column label="Erstellt" width="180">
         <template #default="{ row }">{{ new Date(row.created_at).toLocaleString() }}</template>
       </el-table-column>
-      <el-table-column label="Aktionen" width="200">
+      <el-table-column label="Aktionen" width="280">
         <template #default="{ row }">
           <el-button link @click="download(row)">Download</el-button>
+          <el-button link :disabled="!destinations.length" @click="openUpload(row)">Hochladen</el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
         </template>
       </el-table-column>
@@ -59,6 +60,73 @@
         </el-table-column>
       </el-table>
     </el-card>
+
+    <el-card shadow="never" style="margin-top: 24px">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <span>Externe Backup-Ziele (S3 / SFTP / WebDAV)</span>
+          <el-button type="primary" link @click="destDialog.visible = true">Ziel hinzufügen</el-button>
+        </div>
+      </template>
+      <el-table :data="destinations" size="small">
+        <el-table-column prop="name" label="Name" />
+        <el-table-column prop="type" label="Typ" width="100" />
+        <el-table-column prop="endpoint" label="Endpunkt" show-overflow-tooltip />
+        <el-table-column prop="bucket" label="Bucket/Pfad" />
+        <el-table-column label="Aktionen" width="200">
+          <template #default="{ row }">
+            <el-button link :loading="testing === row.id" @click="testDest(row)">Testen</el-button>
+            <el-button link type="danger" @click="removeDest(row)">Löschen</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
+
+    <el-dialog v-model="destDialog.visible" title="Backup-Ziel" width="520px">
+      <el-form label-width="130px">
+        <el-form-item label="Name"><el-input v-model="destDialog.name" placeholder="offsite-s3" /></el-form-item>
+        <el-form-item label="Typ">
+          <el-select v-model="destDialog.type" style="width: 100%">
+            <el-option label="S3-kompatibel" value="s3" />
+            <el-option label="SFTP / SSH" value="sftp" />
+            <el-option label="WebDAV" value="webdav" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="Endpunkt">
+          <el-input v-model="destDialog.endpoint" :placeholder="endpointHint" />
+        </el-form-item>
+        <el-form-item :label="destDialog.type === 's3' ? 'Bucket' : 'Verzeichnis'">
+          <el-input v-model="destDialog.bucket" placeholder="mein-bucket bzw. /backups" />
+        </el-form-item>
+        <el-form-item v-if="destDialog.type === 's3'" label="Region">
+          <el-input v-model="destDialog.region" placeholder="us-east-1" />
+        </el-form-item>
+        <el-form-item :label="destDialog.type === 's3' ? 'Access-Key' : 'Benutzer'">
+          <el-input v-model="destDialog.access_key" />
+        </el-form-item>
+        <el-form-item :label="destDialog.type === 's3' ? 'Secret-Key' : 'Passwort'">
+          <el-input v-model="destDialog.secret_key" type="password" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="destDialog.visible = false">Abbrechen</el-button>
+        <el-button type="primary" @click="createDest">Speichern</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="uploadDialog.visible" title="Backup hochladen" width="420px">
+      <el-form label-width="100px">
+        <el-form-item label="Ziel">
+          <el-select v-model="uploadDialog.destId" style="width: 100%">
+            <el-option v-for="d in destinations" :key="d.id" :label="`${d.name} (${d.type})`" :value="d.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="uploadDialog.visible = false">Abbrechen</el-button>
+        <el-button type="primary" :loading="uploading" @click="doUpload">Hochladen</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="schedDialog.visible" title="Geplantes Backup" width="480px">
       <el-form label-width="120px">
@@ -107,27 +175,112 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http, { getToken } from '../api/client'
 import { formatBytes } from '../utils/format'
 
 const backups = ref<any[]>([])
 const schedules = ref<any[]>([])
+const destinations = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
+const testing = ref<number | null>(null)
 const fmt = formatBytes
 const dialog = reactive({ visible: false, name: '', type: 'files', source: '' })
 const schedDialog = reactive({ visible: false, name: '', type: 'files', source: '', schedule: '0 3 * * *', retention: 7 })
+const destDialog = reactive({
+  visible: false,
+  name: '',
+  type: 's3',
+  endpoint: '',
+  bucket: '',
+  region: 'us-east-1',
+  access_key: '',
+  secret_key: '',
+})
+const uploadDialog = reactive({ visible: false, backupId: 0, destId: 0 })
+
+const endpointHint = computed(() => {
+  if (destDialog.type === 's3') return 's3.eu-central-1.amazonaws.com (leer = AWS-Standard)'
+  if (destDialog.type === 'sftp') return 'host:22'
+  return 'https://dav.example.com/remote.php/dav'
+})
 
 async function load() {
   loading.value = true
   try {
-    const [b, s] = await Promise.all([http.get('/backups'), http.get('/schedules')])
+    const [b, s, d] = await Promise.all([
+      http.get('/backups'),
+      http.get('/schedules'),
+      http.get('/destinations'),
+    ])
     backups.value = b.data
     schedules.value = s.data
+    destinations.value = d.data
   } finally {
     loading.value = false
+  }
+}
+
+async function createDest() {
+  if (!destDialog.name) {
+    ElMessage.warning('Name erforderlich')
+    return
+  }
+  await http.post('/destinations', {
+    name: destDialog.name,
+    type: destDialog.type,
+    endpoint: destDialog.endpoint,
+    bucket: destDialog.bucket,
+    region: destDialog.region,
+    access_key: destDialog.access_key,
+    secret_key: destDialog.secret_key,
+  })
+  ElMessage.success('Ziel gespeichert')
+  destDialog.visible = false
+  destDialog.name = ''
+  destDialog.secret_key = ''
+  await load()
+}
+
+async function testDest(row: any) {
+  testing.value = row.id
+  try {
+    const { data } = await http.post(`/destinations/${row.id}/test`)
+    if (data.ok) ElMessage.success('Verbindung erfolgreich')
+    else ElMessage.error('Fehlgeschlagen: ' + data.error)
+  } finally {
+    testing.value = null
+  }
+}
+
+async function removeDest(row: any) {
+  await ElMessageBox.confirm(`Ziel "${row.name}" löschen?`, 'Bestätigen', { type: 'warning' })
+  await http.delete(`/destinations/${row.id}`)
+  ElMessage.success('Gelöscht')
+  await load()
+}
+
+function openUpload(row: any) {
+  uploadDialog.backupId = row.id
+  uploadDialog.destId = destinations.value[0]?.id || 0
+  uploadDialog.visible = true
+}
+
+async function doUpload() {
+  if (!uploadDialog.destId) {
+    ElMessage.warning('Ziel wählen')
+    return
+  }
+  uploading.value = true
+  try {
+    await http.post(`/backups/${uploadDialog.backupId}/upload`, { destination_id: uploadDialog.destId })
+    ElMessage.success('Hochgeladen')
+    uploadDialog.visible = false
+  } finally {
+    uploading.value = false
   }
 }
 
