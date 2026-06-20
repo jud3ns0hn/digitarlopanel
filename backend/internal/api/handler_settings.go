@@ -23,6 +23,11 @@ func (s *Server) handleSettingsGet(c *gin.Context) {
 		"ai_model":             s.cfg.AIModel,
 		"ai_key_set":           s.cfg.AIAPIKey != "",
 		"mcp_token":            s.cfg.MCPToken,
+		"smtp_host":            s.cfg.SMTPHost,
+		"smtp_port":            s.cfg.SMTPPort,
+		"smtp_user":            s.cfg.SMTPUser,
+		"smtp_from":            s.cfg.SMTPFrom,
+		"smtp_pass_set":        s.cfg.SMTPPassword != "",
 		"os":                   s.os,
 	})
 }
@@ -39,6 +44,11 @@ type settingsUpdateRequest struct {
 	AIBaseURL         *string `json:"ai_base_url"`
 	AIAPIKey          *string `json:"ai_api_key"`
 	AIModel           *string `json:"ai_model"`
+	SMTPHost          *string `json:"smtp_host"`
+	SMTPPort          *int    `json:"smtp_port"`
+	SMTPUser          *string `json:"smtp_user"`
+	SMTPPassword      *string `json:"smtp_password"`
+	SMTPFrom          *string `json:"smtp_from"`
 }
 
 // handleSettingsUpdate persists configuration changes. Changes to listen and TLS
@@ -81,6 +91,21 @@ func (s *Server) handleSettingsUpdate(c *gin.Context) {
 	}
 	if req.AIModel != nil {
 		s.cfg.AIModel = *req.AIModel
+	}
+	if req.SMTPHost != nil {
+		s.cfg.SMTPHost = *req.SMTPHost
+	}
+	if req.SMTPPort != nil {
+		s.cfg.SMTPPort = *req.SMTPPort
+	}
+	if req.SMTPUser != nil {
+		s.cfg.SMTPUser = *req.SMTPUser
+	}
+	if req.SMTPPassword != nil && *req.SMTPPassword != "" {
+		s.cfg.SMTPPassword = *req.SMTPPassword
+	}
+	if req.SMTPFrom != nil {
+		s.cfg.SMTPFrom = *req.SMTPFrom
 	}
 
 	if s.cfgPath != "" {

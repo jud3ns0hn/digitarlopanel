@@ -107,6 +107,26 @@
     </el-card>
 
     <el-card v-if="auth.isAdmin && panel" shadow="never" style="max-width: 560px; margin-top: 16px">
+      <template #header>SMTP (E-Mail-Alarme)</template>
+      <el-form label-width="180px">
+        <el-form-item label="Host"><el-input v-model="panel.smtp_host" placeholder="smtp.example.com" /></el-form-item>
+        <el-form-item label="Port"><el-input-number v-model="panel.smtp_port" :min="0" :max="65535" /></el-form-item>
+        <el-form-item label="Benutzer"><el-input v-model="panel.smtp_user" /></el-form-item>
+        <el-form-item label="Passwort">
+          <el-input v-model="smtpPass" type="password" show-password
+            :placeholder="panel.smtp_pass_set ? '•••••• (gesetzt – leer lassen zum Behalten)' : 'Passwort'" />
+        </el-form-item>
+        <el-form-item label="Absender (From)"><el-input v-model="panel.smtp_from" placeholder="panel@example.com" /></el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="panelSaving" @click="saveSMTP">Speichern</el-button>
+        </el-form-item>
+      </el-form>
+      <el-alert :closable="false" type="info" show-icon>
+        Wird für E-Mail-Alarme aus dem Monitoring genutzt. STARTTLS wird automatisch verwendet, wenn der Server es anbietet.
+      </el-alert>
+    </el-card>
+
+    <el-card v-if="auth.isAdmin && panel" shadow="never" style="max-width: 560px; margin-top: 16px">
       <template #header>MCP-Server (für externe Agenten)</template>
       <p style="color: #606266">
         Externe Agenten (Claude Code/Desktop) können den Server über MCP verwalten. Endpunkt:
@@ -135,7 +155,27 @@ const disablePassword = ref('')
 const panel = ref<any>(null)
 const panelSaving = ref(false)
 const aiKey = ref('')
+const smtpPass = ref('')
 const mcpUrl = `${location.origin}/mcp`
+
+async function saveSMTP() {
+  panelSaving.value = true
+  try {
+    await http.post('/settings', {
+      smtp_host: panel.value.smtp_host,
+      smtp_port: panel.value.smtp_port,
+      smtp_user: panel.value.smtp_user,
+      smtp_password: smtpPass.value,
+      smtp_from: panel.value.smtp_from,
+    })
+    ElMessage.success('SMTP-Einstellungen gespeichert')
+    smtpPass.value = ''
+    const { data } = await http.get('/settings')
+    panel.value = data
+  } finally {
+    panelSaving.value = false
+  }
+}
 
 async function saveAI() {
   panelSaving.value = true

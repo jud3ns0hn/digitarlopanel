@@ -62,6 +62,7 @@ func NewServer(cfg *config.Config, db *gorm.DB, cfgPath string) *Server {
 	s.scheduler = NewScheduler(s)
 	s.scheduler.Start()
 	s.startMonitorSampler()
+	s.startUptimeChecker()
 	return s
 }
 

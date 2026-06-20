@@ -42,6 +42,14 @@ type Config struct {
 	// panel's MCP server. Generated on first run.
 	MCPToken string `json:"mcp_token"`
 
+	// SMTP configures outbound mail for alert notifications. When SMTPHost is
+	// empty, email alerts are skipped (webhook alerts still work).
+	SMTPHost     string `json:"smtp_host"`
+	SMTPPort     int    `json:"smtp_port"`
+	SMTPUser     string `json:"smtp_user"`
+	SMTPPassword string `json:"smtp_password"`
+	SMTPFrom     string `json:"smtp_from"`
+
 	// TLS configures HTTPS for the panel itself.
 	TLSEnabled        bool   `json:"tls_enabled"`
 	TLSCert           string `json:"tls_cert"`

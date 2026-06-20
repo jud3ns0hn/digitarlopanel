@@ -21,6 +21,7 @@
         <el-menu-item index="/dns"><el-icon><Connection /></el-icon><span>DNS</span></el-menu-item>
         <el-menu-item index="/mail"><el-icon><Message /></el-icon><span>Mail</span></el-menu-item>
         <el-menu-item index="/firewall"><el-icon><Lock /></el-icon><span>Firewall</span></el-menu-item>
+        <el-menu-item index="/monitoring"><el-icon><TrendCharts /></el-icon><span>Monitoring</span></el-menu-item>
         <el-menu-item index="/security"><el-icon><CircleCheck /></el-icon><span>Sicherheit</span></el-menu-item>
         <el-menu-item index="/toolbox"><el-icon><Tools /></el-icon><span>Toolbox</span></el-menu-item>
         <el-menu-item index="/backups"><el-icon><FolderChecked /></el-icon><span>Backups</span></el-menu-item>

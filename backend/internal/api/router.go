@@ -165,6 +165,21 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	admin.GET("/settings", s.handleSettingsGet)
 	admin.POST("/settings", s.handleSettingsUpdate)
 
+	// Uptime monitoring.
+	read.GET("/monitors", s.handleMonitorList)
+	write.POST("/monitors", s.handleMonitorCreate)
+	write.POST("/monitors/:id/toggle", s.handleMonitorToggle)
+	write.DELETE("/monitors/:id", s.handleMonitorDelete)
+
+	// Alert rules (CPU/memory/disk thresholds → email/webhook).
+	read.GET("/alerts", s.handleAlertList)
+	write.POST("/alerts", s.handleAlertCreate)
+	write.POST("/alerts/:id/toggle", s.handleAlertToggle)
+	write.DELETE("/alerts/:id", s.handleAlertDelete)
+
+	// GPU monitoring (NVIDIA).
+	read.GET("/gpu", s.handleGPUList)
+
 	// System toolbox (timezone, hostname, swap, SSH info).
 	read.GET("/toolbox/system", s.handleToolboxSystem)
 	read.GET("/toolbox/timezones", s.handleToolboxTimezones)

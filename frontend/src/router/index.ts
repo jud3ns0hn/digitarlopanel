@@ -27,6 +27,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'dns', name: 'dns', component: () => import('../views/DNS.vue') },
       { path: 'mail', name: 'mail', component: () => import('../views/Mail.vue') },
       { path: 'firewall', name: 'firewall', component: () => import('../views/Firewall.vue') },
+      { path: 'monitoring', name: 'monitoring', component: () => import('../views/Monitoring.vue') },
       { path: 'security', name: 'security', component: () => import('../views/Security.vue') },
       { path: 'toolbox', name: 'toolbox', component: () => import('../views/Toolbox.vue') },
       { path: 'terminal', name: 'terminal', component: () => import('../views/Terminal.vue') },
