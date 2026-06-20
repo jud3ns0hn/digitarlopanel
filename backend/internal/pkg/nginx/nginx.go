@@ -16,7 +16,14 @@ import (
 type VHost struct {
 	Domain string
 	Root   string
+	// SSL fields; when CertPath and KeyPath are set, an HTTPS server block is
+	// emitted and HTTP is redirected to HTTPS (except the ACME challenge path).
+	CertPath string
+	KeyPath  string
 }
+
+// SSLEnabled reports whether the vhost should serve HTTPS.
+func (v VHost) SSLEnabled() bool { return v.CertPath != "" && v.KeyPath != "" }
 
 const vhostTemplate = `# Managed by DigitarloPanel - do not edit by hand
 server {
@@ -29,6 +36,35 @@ server {
     access_log /var/log/nginx/{{ .Domain }}.access.log;
     error_log  /var/log/nginx/{{ .Domain }}.error.log;
 
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ .Root }};
+        allow all;
+    }
+{{- if .SSLEnabled }}
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name {{ .Domain }};
+    root {{ .Root }};
+    index index.html index.htm index.php;
+
+    ssl_certificate     {{ .CertPath }};
+    ssl_certificate_key {{ .KeyPath }};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+
+    access_log /var/log/nginx/{{ .Domain }}.access.log;
+    error_log  /var/log/nginx/{{ .Domain }}.error.log;
+
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -37,6 +73,17 @@ server {
         deny all;
     }
 }
+{{- else }}
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+{{- end }}
 `
 
 var tmpl = template.Must(template.New("vhost").Parse(vhostTemplate))

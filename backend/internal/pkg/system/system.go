@@ -19,17 +19,17 @@ import (
 
 // Metrics is a point-in-time snapshot of host resource usage.
 type Metrics struct {
-	Timestamp   int64        `json:"timestamp"`
-	CPUPercent  float64      `json:"cpu_percent"`
-	CPUCores    int          `json:"cpu_cores"`
-	Load1       float64      `json:"load1"`
-	Load5       float64      `json:"load5"`
-	Load15      float64      `json:"load15"`
-	Memory      MemoryStat   `json:"memory"`
-	Swap        MemoryStat   `json:"swap"`
-	Disks       []DiskStat   `json:"disks"`
-	Network     NetworkStat  `json:"network"`
-	UptimeSecs  uint64       `json:"uptime_secs"`
+	Timestamp  int64       `json:"timestamp"`
+	CPUPercent float64     `json:"cpu_percent"`
+	CPUCores   int         `json:"cpu_cores"`
+	Load1      float64     `json:"load1"`
+	Load5      float64     `json:"load5"`
+	Load15     float64     `json:"load15"`
+	Memory     MemoryStat  `json:"memory"`
+	Swap       MemoryStat  `json:"swap"`
+	Disks      []DiskStat  `json:"disks"`
+	Network    NetworkStat `json:"network"`
+	UptimeSecs uint64      `json:"uptime_secs"`
 }
 
 // MemoryStat holds usage of a memory pool in bytes.

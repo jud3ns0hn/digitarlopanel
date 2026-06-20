@@ -22,7 +22,18 @@ func EnsureSelfSigned(certPath, keyPath string) error {
 	if fileExists(certPath) && fileExists(keyPath) {
 		return nil
 	}
+	return generate(certPath, keyPath, "DigitarloPanel", []string{"localhost"},
+		[]net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback})
+}
 
+// GenerateForDomain writes a self-signed certificate for the given domain,
+// overwriting any existing files. Useful for immediate HTTPS before a CA-signed
+// certificate is obtained.
+func GenerateForDomain(certPath, keyPath, domain string) error {
+	return generate(certPath, keyPath, domain, []string{domain}, nil)
+}
+
+func generate(certPath, keyPath, cn string, dnsNames []string, ips []net.IP) error {
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return err
@@ -33,14 +44,14 @@ func EnsureSelfSigned(certPath, keyPath string) error {
 		return err
 	}
 	template := x509.Certificate{
-		SerialNumber: serial,
-		Subject:      pkix.Name{CommonName: "DigitarloPanel", Organization: []string{"DigitarloPanel"}},
-		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
-		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		DNSNames:     []string{"localhost"},
-		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: cn, Organization: []string{"DigitarloPanel"}},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:              dnsNames,
+		IPAddresses:           ips,
 		BasicConstraintsValid: true,
 	}
 

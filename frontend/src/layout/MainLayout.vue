@@ -9,6 +9,7 @@
         <el-menu-item index="/services"><el-icon><Operation /></el-icon><span>Dienste</span></el-menu-item>
         <el-menu-item index="/websites"><el-icon><Link /></el-icon><span>Websites</span></el-menu-item>
         <el-menu-item index="/databases"><el-icon><Coin /></el-icon><span>Datenbanken</span></el-menu-item>
+        <el-menu-item index="/ssl"><el-icon><Key /></el-icon><span>SSL</span></el-menu-item>
         <el-menu-item index="/cron"><el-icon><Timer /></el-icon><span>Cron-Jobs</span></el-menu-item>
         <el-menu-item index="/docker"><el-icon><Ship /></el-icon><span>Docker</span></el-menu-item>
         <el-menu-item index="/firewall"><el-icon><Lock /></el-icon><span>Firewall</span></el-menu-item>

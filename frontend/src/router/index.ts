@@ -15,6 +15,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'services', name: 'services', component: () => import('../views/Services.vue') },
       { path: 'websites', name: 'websites', component: () => import('../views/Websites.vue') },
       { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
+      { path: 'ssl', name: 'ssl', component: () => import('../views/SSL.vue') },
       { path: 'cron', name: 'cron', component: () => import('../views/Cron.vue') },
       { path: 'docker', name: 'docker', component: () => import('../views/Docker.vue') },
       { path: 'firewall', name: 'firewall', component: () => import('../views/Firewall.vue') },

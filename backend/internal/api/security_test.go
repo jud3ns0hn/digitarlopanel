@@ -7,11 +7,11 @@ func TestValidatePasswordStrength(t *testing.T) {
 		pw      string
 		wantErr bool
 	}{
-		{"short1", true},            // too short
-		{"alllettersonly", true},    // no digit
-		{"1234567890", true},        // no letter
-		{"goodpass123", false},      // ok
-		{"Sup3rSecret!", false},     // ok
+		{"short1", true},         // too short
+		{"alllettersonly", true}, // no digit
+		{"1234567890", true},     // no letter
+		{"goodpass123", false},   // ok
+		{"Sup3rSecret!", false},  // ok
 	}
 	for _, tc := range cases {
 		err := validatePasswordStrength(tc.pw)

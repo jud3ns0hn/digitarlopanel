@@ -13,8 +13,8 @@ import (
 // terminalMessage is the client->server control envelope. Output frames sent
 // back to the client are raw text.
 type terminalMessage struct {
-	Type string `json:"t"`            // "i" = input, "r" = resize
-	Data string `json:"d,omitempty"`  // input payload
+	Type string `json:"t"`           // "i" = input, "r" = resize
+	Data string `json:"d,omitempty"` // input payload
 	Cols uint16 `json:"cols,omitempty"`
 	Rows uint16 `json:"rows,omitempty"`
 }

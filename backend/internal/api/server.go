@@ -3,10 +3,12 @@ package api
 import (
 	"io/fs"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/config"
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/acme"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/dockerctl"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/firewall"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/osinfo"
@@ -26,6 +28,8 @@ type Server struct {
 	service      *service.Controller
 	firewall     *firewall.Manager
 	docker       *dockerctl.Manager
+	issuer       *acme.Issuer
+	certDir      string
 	loginLimiter *rateLimiter
 }
 
@@ -33,6 +37,8 @@ type Server struct {
 func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 	osi := osinfo.Detect()
 	run := runner.Exec{}
+	certDir := filepath.Join(cfg.DataDir, "certs")
+	accountDir := filepath.Join(cfg.DataDir, "acme-accounts")
 	return &Server{
 		cfg:          cfg,
 		db:           db,
@@ -42,6 +48,8 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 		service:      service.New(run),
 		firewall:     firewall.New(run),
 		docker:       dockerctl.New(run),
+		issuer:       acme.NewIssuer(accountDir, certDir, false),
+		certDir:      certDir,
 		loginLimiter: newRateLimiter(10, time.Minute),
 	}
 }

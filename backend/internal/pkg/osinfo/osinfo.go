@@ -20,11 +20,11 @@ const (
 
 // Info describes the detected operating system.
 type Info struct {
-	ID       string `json:"id"`         // e.g. "ubuntu", "rocky"
-	IDLike   string `json:"id_like"`    // e.g. "debian", "rhel fedora"
-	Name     string `json:"name"`       // pretty name
-	Version  string `json:"version"`    // version id
-	Family   Family `json:"family"`     // resolved family
+	ID      string `json:"id"`      // e.g. "ubuntu", "rocky"
+	IDLike  string `json:"id_like"` // e.g. "debian", "rhel fedora"
+	Name    string `json:"name"`    // pretty name
+	Version string `json:"version"` // version id
+	Family  Family `json:"family"`  // resolved family
 }
 
 const osReleasePath = "/etc/os-release"

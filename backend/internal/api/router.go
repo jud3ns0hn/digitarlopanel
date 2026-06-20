@@ -76,6 +76,12 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	write.POST("/firewall/allow", s.handleFirewallAllow)
 	write.POST("/firewall/deny", s.handleFirewallDeny)
 
+	// SSL certificates.
+	read.GET("/ssl", s.handleSSLList)
+	write.POST("/ssl/issue", s.handleSSLIssue)
+	write.POST("/ssl/self-signed", s.handleSSLSelfSigned)
+	write.DELETE("/ssl/:id", s.handleSSLDelete)
+
 	// Docker.
 	read.GET("/docker", s.handleDockerStatus)
 	write.POST("/docker/container", s.handleDockerContainerAction)

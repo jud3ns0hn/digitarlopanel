@@ -4,10 +4,10 @@ import "testing"
 
 func TestSplitPortProto(t *testing.T) {
 	cases := []struct {
-		in        string
-		port      int
-		proto     string
-		ok        bool
+		in    string
+		port  int
+		proto string
+		ok    bool
 	}{
 		{"80/tcp", 80, "tcp", true},
 		{"53/udp", 53, "udp", true},

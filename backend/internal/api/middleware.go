@@ -126,10 +126,10 @@ func bearerToken(c *gin.Context) string {
 // rateLimiter is a simple fixed-window limiter keyed by client IP, used to slow
 // down brute-force login attempts.
 type rateLimiter struct {
-	mu       sync.Mutex
-	hits     map[string][]time.Time
-	limit    int
-	window   time.Duration
+	mu     sync.Mutex
+	hits   map[string][]time.Time
+	limit  int
+	window time.Duration
 }
 
 func newRateLimiter(limit int, window time.Duration) *rateLimiter {
