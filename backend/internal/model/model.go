@@ -58,6 +58,21 @@ type Backup struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// ScheduledBackup defines a recurring backup run by the in-process scheduler.
+type ScheduledBackup struct {
+	ID         uint       `gorm:"primaryKey" json:"id"`
+	Name       string     `gorm:"size:128;not null" json:"name"`
+	Type       string     `gorm:"size:32;not null" json:"type"`     // files | database
+	Source     string     `gorm:"size:512;not null" json:"source"`  // path or database name
+	Schedule   string     `gorm:"size:64;not null" json:"schedule"` // cron expression
+	Retention  int        `gorm:"default:7" json:"retention"`       // keep N most recent
+	Enabled    bool       `gorm:"default:true" json:"enabled"`
+	LastRunAt  *time.Time `json:"last_run_at,omitempty"`
+	LastStatus string     `gorm:"size:256" json:"last_status"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
 // Website is an Nginx virtual host managed by the panel.
 type Website struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`
@@ -110,6 +125,7 @@ func AllModels() []any {
 		&CronJob{},
 		&AuditLog{},
 		&Backup{},
+		&ScheduledBackup{},
 		&Certificate{},
 	}
 }

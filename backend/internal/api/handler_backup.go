@@ -40,44 +40,52 @@ func (s *Server) handleBackupCreate(c *gin.Context) {
 		badRequest(c, "name must be alphanumeric/._- and at most 64 chars")
 		return
 	}
-	if err := os.MkdirAll(s.cfg.BackupDir, 0o750); err != nil {
-		serverError(c, err)
-		return
-	}
-
-	stamp := time.Now().Format("20060102-150405")
-	ctx := c.Request.Context()
-
-	var (
-		archive string
-		err     error
-	)
-	switch req.Type {
-	case "files":
-		archive, err = s.backupFiles(ctx, req.Name, stamp, req.Source)
-	case "database":
-		archive, err = s.backupDatabase(ctx, req.Name, stamp, req.Source)
-	default:
+	if req.Type != "files" && req.Type != "database" {
 		badRequest(c, "type must be 'files' or 'database'")
 		return
 	}
+	rec, err := s.runBackup(c.Request.Context(), req.Name, req.Type, req.Source)
 	if err != nil {
-		serverError(c, err)
-		return
-	}
-
-	info, _ := os.Stat(archive)
-	var size int64
-	if info != nil {
-		size = info.Size()
-	}
-	rec := model.Backup{Name: req.Name, Type: req.Type, Source: req.Source, Path: archive, Size: size}
-	if err := s.db.Create(&rec).Error; err != nil {
 		serverError(c, err)
 		return
 	}
 	s.audit(c, "backup_create", req.Type+":"+req.Source)
 	c.JSON(http.StatusOK, rec)
+}
+
+// runBackup performs a backup and records it, independent of any HTTP request so
+// it can be invoked by the scheduler. Callers validate name/type beforehand.
+func (s *Server) runBackup(ctx context.Context, name, typ, source string) (model.Backup, error) {
+	if err := os.MkdirAll(s.cfg.BackupDir, 0o750); err != nil {
+		return model.Backup{}, err
+	}
+	stamp := time.Now().Format("20060102-150405")
+
+	var (
+		archive string
+		err     error
+	)
+	switch typ {
+	case "files":
+		archive, err = s.backupFiles(ctx, name, stamp, source)
+	case "database":
+		archive, err = s.backupDatabase(ctx, name, stamp, source)
+	default:
+		return model.Backup{}, fmt.Errorf("invalid backup type: %s", typ)
+	}
+	if err != nil {
+		return model.Backup{}, err
+	}
+
+	var size int64
+	if info, statErr := os.Stat(archive); statErr == nil {
+		size = info.Size()
+	}
+	rec := model.Backup{Name: name, Type: typ, Source: source, Path: archive, Size: size}
+	if err := s.db.Create(&rec).Error; err != nil {
+		return model.Backup{}, err
+	}
+	return rec, nil
 }
 
 func (s *Server) backupFiles(ctx context.Context, name, stamp, source string) (string, error) {

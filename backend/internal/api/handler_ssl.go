@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/model"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/certgen"
-	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/nginx"
 )
 
 func (s *Server) handleSSLList(c *gin.Context) {
@@ -55,7 +54,7 @@ func (s *Server) handleSSLIssue(c *gin.Context) {
 	}
 
 	cert := s.upsertCert(req.Domain, "letsencrypt", issued.CertPath, issued.KeyPath)
-	if err := s.applyCertToSite(c, site, issued.CertPath, issued.KeyPath); err != nil {
+	if err := s.writeSiteVHost(c, site); err != nil {
 		serverError(c, err)
 		return
 	}
@@ -95,7 +94,7 @@ func (s *Server) handleSSLSelfSigned(c *gin.Context) {
 	// Bind to the website if one exists.
 	var site model.Website
 	if err := s.db.Where("domain = ?", req.Domain).First(&site).Error; err == nil {
-		if err := s.applyCertToSite(c, site, certPath, keyPath); err != nil {
+		if err := s.writeSiteVHost(c, site); err != nil {
 			serverError(c, err)
 			return
 		}
@@ -110,15 +109,15 @@ func (s *Server) handleSSLDelete(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "certificate not found"})
 		return
 	}
-	// Rewrite the site without SSL if it exists.
-	var site model.Website
-	if err := s.db.Where("domain = ?", cert.Domain).First(&site).Error; err == nil {
-		_ = nginx.Write(s.os.Family, nginx.VHost{Domain: site.Domain, Root: site.Root})
-		_, _ = s.service.Reload(c.Request.Context(), "nginx")
-	}
+	// Delete first so the rewrite below picks up the absence of the cert.
 	if err := s.db.Delete(&cert).Error; err != nil {
 		serverError(c, err)
 		return
+	}
+	// Rewrite the site without SSL if it exists (PHP settings are preserved).
+	var site model.Website
+	if err := s.db.Where("domain = ?", cert.Domain).First(&site).Error; err == nil {
+		_ = s.writeSiteVHost(c, site)
 	}
 	s.audit(c, "ssl_delete", cert.Domain)
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
@@ -137,20 +136,6 @@ func (s *Server) upsertCert(domain, typ, certPath, keyPath string) model.Certifi
 	}
 	s.db.Save(&cert)
 	return cert
-}
-
-// applyCertToSite rewrites the site's vhost with the certificate and reloads nginx.
-func (s *Server) applyCertToSite(c *gin.Context, site model.Website, certPath, keyPath string) error {
-	if err := nginx.Write(s.os.Family, nginx.VHost{
-		Domain:   site.Domain,
-		Root:     site.Root,
-		CertPath: certPath,
-		KeyPath:  keyPath,
-	}); err != nil {
-		return err
-	}
-	_, _ = s.service.Reload(c.Request.Context(), "nginx")
-	return nil
 }
 
 // certNotAfter parses a PEM certificate file and returns its expiry.

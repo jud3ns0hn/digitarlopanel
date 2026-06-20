@@ -60,7 +60,12 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/websites", s.handleWebsiteList)
 	write.POST("/websites", s.handleWebsiteCreate)
 	write.POST("/websites/:id/toggle", s.handleWebsiteToggle)
+	write.POST("/websites/:id/php", s.handleWebsitePHP)
 	write.DELETE("/websites/:id", s.handleWebsiteDelete)
+
+	// PHP versions.
+	read.GET("/php", s.handlePHPList)
+	write.POST("/php/install", s.handlePHPInstall)
 
 	// Databases.
 	read.GET("/databases", s.handleDatabaseList)
@@ -98,6 +103,12 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/backups/:id/download", s.handleBackupDownload)
 	write.POST("/backups", s.handleBackupCreate)
 	write.DELETE("/backups/:id", s.handleBackupDelete)
+
+	// Scheduled backups.
+	read.GET("/schedules", s.handleScheduleList)
+	write.POST("/schedules", s.handleScheduleCreate)
+	write.POST("/schedules/:id/toggle", s.handleScheduleToggle)
+	write.DELETE("/schedules/:id", s.handleScheduleDelete)
 
 	// Audit log (read-only).
 	read.GET("/audit", s.handleAuditList)

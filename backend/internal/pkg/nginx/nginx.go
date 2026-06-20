@@ -20,10 +20,16 @@ type VHost struct {
 	// emitted and HTTP is redirected to HTTPS (except the ACME challenge path).
 	CertPath string
 	KeyPath  string
+	// PHPSocket, when set, adds a FastCGI location passing .php requests to the
+	// given php-fpm unix socket.
+	PHPSocket string
 }
 
 // SSLEnabled reports whether the vhost should serve HTTPS.
 func (v VHost) SSLEnabled() bool { return v.CertPath != "" && v.KeyPath != "" }
+
+// PHPEnabled reports whether a php-fpm backend is configured.
+func (v VHost) PHPEnabled() bool { return v.PHPSocket != "" }
 
 const vhostTemplate = `# Managed by DigitarloPanel - do not edit by hand
 server {
@@ -66,8 +72,17 @@ server {
     error_log  /var/log/nginx/{{ .Domain }}.error.log;
 
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ /index.php?$query_string /index.html;
     }
+{{- if .PHPEnabled }}
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:{{ .PHPSocket }};
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+{{- end }}
 
     location ~ /\.(?!well-known).* {
         deny all;
@@ -76,8 +91,17 @@ server {
 {{- else }}
 
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/ /index.php?$query_string /index.html;
     }
+{{- if .PHPEnabled }}
+
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass unix:{{ .PHPSocket }};
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+{{- end }}
 
     location ~ /\.(?!well-known).* {
         deny all;
@@ -126,6 +150,9 @@ func Write(family osinfo.Family, v VHost) error {
 	}
 	available, enabled := confDir(family)
 	if err := os.MkdirAll(available, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(enabled, 0o755); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(v.Root, 0o755); err != nil {

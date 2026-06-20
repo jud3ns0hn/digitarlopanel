@@ -30,6 +30,7 @@ type Server struct {
 	docker       *dockerctl.Manager
 	issuer       *acme.Issuer
 	certDir      string
+	scheduler    *Scheduler
 	loginLimiter *rateLimiter
 }
 
@@ -39,7 +40,7 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 	run := runner.Exec{}
 	certDir := filepath.Join(cfg.DataDir, "certs")
 	accountDir := filepath.Join(cfg.DataDir, "acme-accounts")
-	return &Server{
+	s := &Server{
 		cfg:          cfg,
 		db:           db,
 		os:           osi,
@@ -52,6 +53,9 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 		certDir:      certDir,
 		loginLimiter: newRateLimiter(10, time.Minute),
 	}
+	s.scheduler = NewScheduler(s)
+	s.scheduler.Start()
+	return s
 }
 
 // Handler builds the gin engine with all routes and the embedded SPA, served
