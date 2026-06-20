@@ -17,6 +17,12 @@ Binärdatei** mit eingebettetem Web-Frontend.
   zeitkonstante Benutzersuche gegen Enumeration.
 - **Härtung** — strikte Security-Header inkl. Content-Security-Policy auf jeder
   Antwort; optionales Panel-TLS mit Auto-Self-Signed.
+- **WAF** — optionale Web-Application-Firewall-Regeln pro Website (blockiert
+  SQL-Injection-/XSS-Muster, Path-Traversal und bekannte Scanner).
+- **Tamper-Schutz** — SHA-256-Baselines überwachter Dateien/Verzeichnisse mit
+  Scan zur Erkennung von Manipulationen.
+- **Fail2ban / ClamAV** — Intrusion-Prevention (Jails, Ban/Unban) und
+  Malware-Scans direkt aus dem Panel.
 - **Audit-Log** — protokolliert alle sicherheitsrelevanten Aktionen.
 
 ### Verwaltung
@@ -29,28 +35,41 @@ Binärdatei** mit eingebettetem Web-Frontend.
 - **Software & Dienste** — Cross-Distro-Installation und systemd-Steuerung
   (Nginx, MariaDB, Redis, PHP-FPM); zusätzlich generische systemd-Unit-Verwaltung.
 - **Websites** — Nginx-vhosts anlegen/aktivieren/löschen, **PHP-Version pro
-  Site**, **Reverse-Proxy** (App/Docker hinter Nginx, inkl. WebSocket).
+  Site**, **Reverse-Proxy** (App/Docker hinter Nginx, inkl. WebSocket),
+  **301-Redirects**, **HTTP-Basic-Auth**, eigene Nginx-Snippets und **WAF**.
 - **PHP** — installierte PHP-FPM-Versionen erkennen und installieren.
-- **Datenbanken** — MySQL/MariaDB-Datenbanken und -Benutzer verwalten.
+- **Laufzeiten** — Node.js, Python 3, Java (OpenJDK) und Go erkennen und
+  per Klick installieren.
+- **Datenbanken** — MySQL/MariaDB, **PostgreSQL** und **Redis** verwalten.
 - **SSL** — Let's-Encrypt-Zertifikate (ACME HTTP-01) und Self-Signed je Domain,
-  mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3).
+  mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3) und
+  **automatischer Erneuerung** vor Ablauf.
 - **Cron-Jobs** — geplante Aufgaben (Sync nach `/etc/cron.d`).
 - **KI-Assistent** — Chat mit Tool-Use über die Panel-Funktionen (Metriken,
   Dienste, Logs, Backups …); Provider **Anthropic/Claude**, **OpenAI** oder
   **Ollama (self-hosted)** und andere OpenAI-kompatible Dienste.
 - **MCP-Server** — stellt dieselben sicheren Tools als MCP (JSON-RPC) für
   externe Agenten (Claude Code/Desktop) bereit, per Token authentifiziert.
-- **App-Store** — kuratierter Docker-Katalog mit Kategorien (KI & Agenten:
-  Ollama, Open WebUI, Flowise, AnythingLLM, LibreChat; Automatisierung: n8n,
-  Node-RED; Datenbanken; Monitoring; Produktivität) zur Ein-Klick-Installation.
-- **Docker** — Container auflisten/steuern, Images auflisten/ziehen.
+- **App-Store** — kuratierter Docker-Katalog (28 Apps) mit Kategorien:
+  KI & Agenten (Ollama, Open WebUI, Flowise, AnythingLLM, LibreChat, Qdrant,
+  SearXNG, Dify), Automatisierung (n8n, Node-RED), Datenbanken (PostgreSQL,
+  Redis, MongoDB, MariaDB, MinIO), Monitoring (Uptime Kuma, Grafana, Prometheus,
+  Dozzle), Produktivität (Nextcloud, Vaultwarden, Gitea, code-server, Portainer,
+  Jellyfin, …) zur Ein-Klick-Installation.
+- **Monitoring & Alarme** — Uptime-Checks (HTTP/HTTPS), Schwellwert-Alarme für
+  CPU/RAM/Disk per **E-Mail (SMTP)** oder **Webhook**, GPU-Monitoring (NVIDIA).
+- **Toolbox** — Zeitzone, Hostname, Swap-Datei, SSH-Konfigurationsübersicht,
+  Supervisor-Prozesse.
+- **Docker** — Container/Images/**Netzwerke/Volumes** auflisten und steuern,
+  Logs, Stats, Prune.
 - **App-Stacks** — Docker-Compose-Stacks deployen/stoppen (eigenes YAML).
 - **FTP** — virtuelle pure-ftpd-Konten anlegen/verwalten.
 - **DNS** — BIND-Zonen und Records (A/AAAA/CNAME/MX/TXT/NS) verwalten.
 - **Mail** — virtuelle Postfix/Dovecot-Domains und Postfächer.
 - **Firewall** — ufw/firewalld: Status, Ports freigeben/sperren.
 - **Backups** — tar.gz von Dateien und mysqldump von Datenbanken, plus
-  **geplante Backups** (interner Cron-Scheduler mit Aufbewahrung).
+  **geplante Backups** (interner Cron-Scheduler mit Aufbewahrung) und
+  **externe Ziele** (S3-kompatibel via nativem SigV4, SFTP, WebDAV).
 - **Logs** — journalctl je Unit und Tail von Dateien unter `/var/log`.
 - **Web-Terminal** — PTY-Shell über WebSocket (xterm.js), nur Admin, auditiert.
 - **Benutzerverwaltung** — Benutzer/Rollen anlegen und verwalten (nur Admin).
