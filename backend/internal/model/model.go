@@ -75,13 +75,16 @@ type ScheduledBackup struct {
 
 // Website is an Nginx virtual host managed by the panel.
 type Website struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	Domain     string    `gorm:"uniqueIndex;size:255;not null" json:"domain"`
-	Root       string    `gorm:"size:512;not null" json:"root"`
-	PHPVersion string    `gorm:"size:16" json:"php_version"`
-	Enabled    bool      `gorm:"default:true" json:"enabled"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         uint   `gorm:"primaryKey" json:"id"`
+	Domain     string `gorm:"uniqueIndex;size:255;not null" json:"domain"`
+	Root       string `gorm:"size:512;not null" json:"root"`
+	PHPVersion string `gorm:"size:16" json:"php_version"`
+	// ProxyPass, when set, turns the site into a reverse proxy to this upstream
+	// (e.g. http://127.0.0.1:3000) instead of serving files.
+	ProxyPass string    `gorm:"size:255" json:"proxy_pass"`
+	Enabled   bool      `gorm:"default:true" json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // DatabaseInstance records a MySQL/MariaDB database created via the panel.

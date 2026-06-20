@@ -13,10 +13,11 @@
     <el-table :data="sites" v-loading="loading" size="small">
       <el-table-column prop="domain" label="Domain" />
       <el-table-column prop="root" label="Document-Root" />
-      <el-table-column label="PHP" width="120">
+      <el-table-column label="Typ" width="200">
         <template #default="{ row }">
-          <el-tag v-if="row.php_version" size="small">PHP {{ row.php_version }}</el-tag>
-          <span v-else>—</span>
+          <el-tag v-if="row.proxy_pass" type="warning" size="small">Proxy → {{ row.proxy_pass }}</el-tag>
+          <el-tag v-else-if="row.php_version" size="small">PHP {{ row.php_version }}</el-tag>
+          <el-tag v-else type="info" size="small">Statisch</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="Status" width="110">
@@ -27,6 +28,7 @@
       <el-table-column label="Aktionen" width="320">
         <template #default="{ row }">
           <el-button link @click="setPHP(row)">PHP</el-button>
+          <el-button link @click="setProxy(row)">Proxy</el-button>
           <el-button link @click="toggle(row)">{{ row.enabled ? 'Deaktivieren' : 'Aktivieren' }}</el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
         </template>
@@ -43,6 +45,21 @@
       <template #footer>
         <el-button @click="dialog.visible = false">Abbrechen</el-button>
         <el-button type="primary" :loading="saving" @click="create">Erstellen</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="proxyDialog.visible" title="Reverse-Proxy" width="460px">
+      <el-form label-width="120px">
+        <el-form-item label="Ziel-URL">
+          <el-input v-model="proxyDialog.target" placeholder="http://127.0.0.1:3000 (leer = aus)" />
+        </el-form-item>
+      </el-form>
+      <el-alert :closable="false" type="info" show-icon>
+        Leitet alle Anfragen an die Ziel-URL weiter (inkl. WebSocket-Upgrade). Ideal für Apps/Docker hinter Nginx mit SSL.
+      </el-alert>
+      <template #footer>
+        <el-button @click="proxyDialog.visible = false">Abbrechen</el-button>
+        <el-button type="primary" @click="saveProxy">Speichern</el-button>
       </template>
     </el-dialog>
 
@@ -74,6 +91,20 @@ const loading = ref(false)
 const saving = ref(false)
 const dialog = reactive({ visible: false, domain: '', root: '' })
 const phpDialog = reactive({ visible: false, id: 0, version: '' })
+const proxyDialog = reactive({ visible: false, id: 0, target: '' })
+
+function setProxy(row: any) {
+  proxyDialog.id = row.id
+  proxyDialog.target = row.proxy_pass || ''
+  proxyDialog.visible = true
+}
+
+async function saveProxy() {
+  await http.post(`/websites/${proxyDialog.id}/proxy`, { proxy_pass: proxyDialog.target })
+  ElMessage.success('Proxy aktualisiert')
+  proxyDialog.visible = false
+  await load()
+}
 
 async function load() {
   loading.value = true

@@ -23,13 +23,19 @@ type VHost struct {
 	// PHPSocket, when set, adds a FastCGI location passing .php requests to the
 	// given php-fpm unix socket.
 	PHPSocket string
+	// ProxyPass, when set, makes the site a reverse proxy to this upstream URL.
+	ProxyPass string
 }
 
 // SSLEnabled reports whether the vhost should serve HTTPS.
 func (v VHost) SSLEnabled() bool { return v.CertPath != "" && v.KeyPath != "" }
 
-// PHPEnabled reports whether a php-fpm backend is configured.
-func (v VHost) PHPEnabled() bool { return v.PHPSocket != "" }
+// PHPEnabled reports whether a php-fpm backend is configured (ignored when the
+// site is a reverse proxy).
+func (v VHost) PHPEnabled() bool { return v.PHPSocket != "" && v.ProxyPass == "" }
+
+// ProxyEnabled reports whether the site is a reverse proxy.
+func (v VHost) ProxyEnabled() bool { return v.ProxyPass != "" }
 
 const vhostTemplate = `# Managed by DigitarloPanel - do not edit by hand
 server {
@@ -71,6 +77,18 @@ server {
     access_log /var/log/nginx/{{ .Domain }}.access.log;
     error_log  /var/log/nginx/{{ .Domain }}.error.log;
 
+{{- if .ProxyEnabled }}
+    location / {
+        proxy_pass {{ .ProxyPass }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+{{- else }}
     location / {
         try_files $uri $uri/ /index.php?$query_string /index.html;
     }
@@ -83,6 +101,7 @@ server {
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
 {{- end }}
+{{- end }}
 
     location ~ /\.(?!well-known).* {
         deny all;
@@ -90,6 +109,18 @@ server {
 }
 {{- else }}
 
+{{- if .ProxyEnabled }}
+    location / {
+        proxy_pass {{ .ProxyPass }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+{{- else }}
     location / {
         try_files $uri $uri/ /index.php?$query_string /index.html;
     }
@@ -101,6 +132,7 @@ server {
         fastcgi_index index.php;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
+{{- end }}
 {{- end }}
 
     location ~ /\.(?!well-known).* {

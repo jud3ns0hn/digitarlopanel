@@ -27,22 +27,24 @@ Binärdatei** mit eingebettetem Web-Frontend.
   Path-Traversal-Schutz.
 - **Software & Dienste** — Cross-Distro-Installation und systemd-Steuerung
   (Nginx, MariaDB, Redis, PHP-FPM); zusätzlich generische systemd-Unit-Verwaltung.
-- **Websites** — Nginx-vhosts anlegen/aktivieren/löschen.
+- **Websites** — Nginx-vhosts anlegen/aktivieren/löschen, **PHP-Version pro
+  Site**, **Reverse-Proxy** (App/Docker hinter Nginx, inkl. WebSocket).
+- **PHP** — installierte PHP-FPM-Versionen erkennen und installieren.
 - **Datenbanken** — MySQL/MariaDB-Datenbanken und -Benutzer verwalten.
 - **SSL** — Let's-Encrypt-Zertifikate (ACME HTTP-01) und Self-Signed je Domain,
   mit automatischer Nginx-HTTPS-Konfiguration (HSTS, TLS 1.2/1.3).
 - **Cron-Jobs** — geplante Aufgaben (Sync nach `/etc/cron.d`).
 - **Docker** — Container auflisten/steuern, Images auflisten/ziehen.
 - **Firewall** — ufw/firewalld: Status, Ports freigeben/sperren.
-- **Backups** — tar.gz von Dateien und mysqldump von Datenbanken, Download.
+- **Backups** — tar.gz von Dateien und mysqldump von Datenbanken, plus
+  **geplante Backups** (interner Cron-Scheduler mit Aufbewahrung).
 - **Logs** — journalctl je Unit und Tail von Dateien unter `/var/log`.
 - **Web-Terminal** — PTY-Shell über WebSocket (xterm.js), nur Admin, auditiert.
 - **Benutzerverwaltung** — Benutzer/Rollen anlegen und verwalten (nur Admin).
 
 ### Geplant (nächste Iterationen)
 
-PHP-Versionsverwaltung pro Site · FTP-Konten · geplante Backups · persistente
-Monitoring-Historie · Reverse-Proxy-Assistent.
+FTP-Konten · persistente Monitoring-Historie · DNS-/Mailserver-Verwaltung.
 
 ## Architektur
 
