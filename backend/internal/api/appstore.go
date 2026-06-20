@@ -259,6 +259,211 @@ volumes:
   gitea:
 `,
 	},
+	{
+		Key: "code-server", Name: "code-server", Category: "Produktivität", Port: 8443,
+		Description: "VS Code im Browser – Entwicklung direkt auf dem Server.",
+		Compose: `services:
+  code-server:
+    image: codercom/code-server:latest
+    restart: unless-stopped
+    ports:
+      - "8443:8080"
+    environment:
+      - PASSWORD=changeme
+    volumes:
+      - code-server:/home/coder
+volumes:
+  code-server:
+`,
+	},
+	// ---- AI & Agents (zusätzlich) ----
+	{
+		Key: "qdrant", Name: "Qdrant", Category: "KI & Agenten", Port: 6333,
+		Description: "Hochperformante Vektor-Datenbank für RAG und semantische Suche.",
+		Compose: `services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant:/qdrant/storage
+volumes:
+  qdrant:
+`,
+	},
+	{
+		Key: "dify", Name: "Dify (Sandbox)", Category: "KI & Agenten", Port: 3006,
+		Description: "Builder für KI-Apps und Agenten-Workflows (Standalone-Sandbox).",
+		Compose: `services:
+  dify-sandbox:
+    image: langgenius/dify-sandbox:latest
+    restart: unless-stopped
+    ports:
+      - "3006:8194"
+`,
+	},
+	{
+		Key: "searxng", Name: "SearXNG", Category: "KI & Agenten", Port: 8088,
+		Description: "Datenschutzfreundliche Meta-Suchmaschine, ideal als Agenten-Suchtool.",
+		Compose: `services:
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    ports:
+      - "8089:8080"
+    volumes:
+      - searxng:/etc/searxng
+volumes:
+  searxng:
+`,
+	},
+	// ---- Databases (zusätzlich) ----
+	{
+		Key: "mariadb-app", Name: "MariaDB", Category: "Datenbanken", Port: 3307,
+		Description: "MySQL-kompatible Datenbank als Container.",
+		Compose: `services:
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      - MARIADB_ROOT_PASSWORD=changeme
+    volumes:
+      - mariadb:/var/lib/mysql
+volumes:
+  mariadb:
+`,
+	},
+	{
+		Key: "minio", Name: "MinIO", Category: "Datenbanken", Port: 9001,
+		Description: "S3-kompatibler Objektspeicher – ideal als Backup-Ziel.",
+		Compose: `services:
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=changeme123
+    volumes:
+      - minio:/data
+volumes:
+  minio:
+`,
+	},
+	// ---- Monitoring (zusätzlich) ----
+	{
+		Key: "dozzle", Name: "Dozzle", Category: "Monitoring", Port: 8085,
+		Description: "Echtzeit-Log-Viewer für Docker-Container im Browser.",
+		Compose: `services:
+  dozzle:
+    image: amir20/dozzle:latest
+    restart: unless-stopped
+    ports:
+      - "8085:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+`,
+	},
+	{
+		Key: "prometheus", Name: "Prometheus", Category: "Monitoring", Port: 9090,
+		Description: "Metrik-Sammlung und Alerting-Engine.",
+		Compose: `services:
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus:/prometheus
+volumes:
+  prometheus:
+`,
+	},
+	// ---- Productivity / Tools ----
+	{
+		Key: "portainer", Name: "Portainer", Category: "Produktivität", Port: 9443,
+		Description: "Grafische Verwaltung für Docker-Umgebungen.",
+		Compose: `services:
+  portainer:
+    image: portainer/portainer-ce:latest
+    restart: unless-stopped
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer:/data
+volumes:
+  portainer:
+`,
+	},
+	{
+		Key: "filebrowser", Name: "File Browser", Category: "Produktivität", Port: 8086,
+		Description: "Web-Dateimanager für ein freigegebenes Verzeichnis.",
+		Compose: `services:
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    restart: unless-stopped
+    ports:
+      - "8086:80"
+    volumes:
+      - filebrowser-data:/srv
+      - filebrowser-db:/database
+volumes:
+  filebrowser-data:
+  filebrowser-db:
+`,
+	},
+	{
+		Key: "uptime-umami", Name: "Umami Analytics", Category: "Produktivität", Port: 3007,
+		Description: "Datenschutzfreundliche, self-hosted Web-Analytics.",
+		Compose: `services:
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    ports:
+      - "3007:3000"
+    environment:
+      - DATABASE_URL=postgresql://umami:umami@umami-db:5432/umami
+      - DATABASE_TYPE=postgresql
+      - APP_SECRET=change-this-secret
+    depends_on:
+      - umami-db
+  umami-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=umami
+      - POSTGRES_USER=umami
+      - POSTGRES_PASSWORD=umami
+    volumes:
+      - umami-db:/var/lib/postgresql/data
+volumes:
+  umami-db:
+`,
+	},
+	{
+		Key: "jellyfin", Name: "Jellyfin", Category: "Produktivität", Port: 8096,
+		Description: "Self-hosted Media-Server für Filme, Serien und Musik.",
+		Compose: `services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    restart: unless-stopped
+    ports:
+      - "8096:8096"
+    volumes:
+      - jellyfin-config:/config
+      - jellyfin-cache:/cache
+volumes:
+  jellyfin-config:
+  jellyfin-cache:
+`,
+	},
 }
 
 func findStoreApp(key string) (storeApp, bool) {

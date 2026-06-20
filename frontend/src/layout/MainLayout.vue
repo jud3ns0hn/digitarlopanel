@@ -7,6 +7,7 @@
         <el-menu-item index="/assistant"><el-icon><ChatDotRound /></el-icon><span>KI-Assistent</span></el-menu-item>
         <el-menu-item index="/files"><el-icon><Folder /></el-icon><span>Dateien</span></el-menu-item>
         <el-menu-item index="/software"><el-icon><Box /></el-icon><span>Software</span></el-menu-item>
+        <el-menu-item index="/runtimes"><el-icon><Cpu /></el-icon><span>Laufzeiten</span></el-menu-item>
         <el-menu-item index="/services"><el-icon><Operation /></el-icon><span>Dienste</span></el-menu-item>
         <el-menu-item index="/websites"><el-icon><Link /></el-icon><span>Websites</span></el-menu-item>
         <el-menu-item index="/databases"><el-icon><Coin /></el-icon><span>MySQL</span></el-menu-item>

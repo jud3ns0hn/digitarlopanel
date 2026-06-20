@@ -88,8 +88,10 @@ type Website struct {
 	// ExtraConfig is an admin-provided raw nginx snippet for the server block.
 	ExtraConfig string `gorm:"size:4096" json:"extra_config"`
 	// BasicAuthUser/Hash protect the site with HTTP Basic auth when set.
-	BasicAuthUser string    `gorm:"size:64" json:"basic_auth_user"`
-	BasicAuthHash string    `gorm:"size:255" json:"-"`
+	BasicAuthUser string `gorm:"size:64" json:"basic_auth_user"`
+	BasicAuthHash string `gorm:"size:255" json:"-"`
+	// WAF enables the baseline web-application-firewall ruleset for the site.
+	WAF           bool      `gorm:"default:false" json:"waf"`
 	Enabled       bool      `gorm:"default:true" json:"enabled"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -243,6 +245,18 @@ type BackupDestination struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+// FileIntegrity records a baseline hash for a watched file so tampering can be
+// detected on later scans.
+type FileIntegrity struct {
+	ID          uint       `gorm:"primaryKey" json:"id"`
+	Path        string     `gorm:"uniqueIndex;size:512;not null" json:"path"`
+	Hash        string     `gorm:"size:64;not null" json:"hash"`
+	Size        int64      `json:"size"`
+	Status      string     `gorm:"size:16;default:ok" json:"status"` // ok | changed | missing
+	LastChecked *time.Time `json:"last_checked,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+}
+
 // AllModels returns every model for AutoMigrate.
 func AllModels() []any {
 	return []any{
@@ -265,5 +279,6 @@ func AllModels() []any {
 		&UptimeMonitor{},
 		&AlertRule{},
 		&BackupDestination{},
+		&FileIntegrity{},
 	}
 }

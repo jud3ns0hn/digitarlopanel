@@ -32,6 +32,27 @@ type VHost struct {
 	AuthFile string
 	// ExtraConfig is an admin-provided raw snippet inserted into the server block.
 	ExtraConfig string
+	// WAF, when true, injects a baseline web-application-firewall ruleset that
+	// blocks common injection patterns, malicious user agents and sensitive paths.
+	WAF bool
+}
+
+// WAFEnabled reports whether the baseline firewall ruleset is active.
+func (v VHost) WAFEnabled() bool { return v.WAF }
+
+// WAFRules returns nginx directives implementing a conservative baseline WAF.
+// The patterns target obvious SQL-injection / XSS / traversal probes and known
+// scanner user agents while avoiding false positives on normal traffic.
+func (v VHost) WAFRules() string {
+	if !v.WAF {
+		return ""
+	}
+	return "    # DigitarloPanel WAF (baseline)\n" +
+		"    if ($query_string ~* \"(union.*select|insert\\s+into|drop\\s+table|information_schema|/\\*\\!|concat\\s*\\()\") { return 403; }\n" +
+		"    if ($query_string ~* \"(<script|%3Cscript|javascript:|onerror\\s*=|onload\\s*=)\") { return 403; }\n" +
+		"    if ($query_string ~* \"(\\.\\./|\\.\\.%2f|/etc/passwd|boot\\.ini)\") { return 403; }\n" +
+		"    if ($http_user_agent ~* \"(sqlmap|nikto|nmap|masscan|nessus|acunetix|fimap|whatweb)\") { return 403; }\n" +
+		"    if ($request_method !~ ^(GET|HEAD|POST|PUT|DELETE|PATCH|OPTIONS)$) { return 405; }\n"
 }
 
 // RedirectEnabled reports whether the site redirects.
@@ -54,6 +75,9 @@ func (v VHost) ProxyEnabled() bool { return v.ProxyPass != "" }
 // server block.
 func (v VHost) ServerExtras() string {
 	var b strings.Builder
+	if rules := v.WAFRules(); rules != "" {
+		b.WriteString(rules)
+	}
 	if v.AuthEnabled() {
 		fmt.Fprintf(&b, "    auth_basic \"Restricted\";\n    auth_basic_user_file %s;\n", v.AuthFile)
 	}

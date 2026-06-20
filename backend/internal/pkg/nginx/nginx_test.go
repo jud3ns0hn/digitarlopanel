@@ -76,6 +76,24 @@ func TestRenderBasicAuthAndExtra(t *testing.T) {
 	}
 }
 
+func TestRenderWAF(t *testing.T) {
+	out, err := Render(VHost{Domain: "waf.com", Root: "/srv", WAF: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "DigitarloPanel WAF") {
+		t.Error("missing WAF marker")
+	}
+	if !strings.Contains(out, "sqlmap") {
+		t.Error("missing scanner user-agent rule")
+	}
+	// Without WAF the rules must be absent.
+	off, _ := Render(VHost{Domain: "nowaf.com", Root: "/srv"})
+	if strings.Contains(off, "DigitarloPanel WAF") {
+		t.Error("WAF rules leaked into non-WAF site")
+	}
+}
+
 func TestRenderProxy(t *testing.T) {
 	out, err := Render(VHost{Domain: "app.com", Root: "/srv", ProxyPass: "http://127.0.0.1:3000"})
 	if err != nil {

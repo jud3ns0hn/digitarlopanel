@@ -27,6 +27,7 @@ func (s *Server) writeSiteVHost(ctx context.Context, site model.Website) error {
 		ProxyPass:   site.ProxyPass,
 		RedirectURL: site.Redirect,
 		ExtraConfig: site.ExtraConfig,
+		WAF:         site.WAF,
 	}
 
 	var cert model.Certificate
@@ -160,6 +161,7 @@ type websiteConfigRequest struct {
 	ExtraConfig   *string `json:"extra_config"`
 	BasicAuthUser *string `json:"basic_auth_user"`
 	BasicAuthPass *string `json:"basic_auth_password"`
+	WAF           *bool   `json:"waf"`
 }
 
 // handleWebsiteConfig sets advanced site options: 301 redirect, custom nginx
@@ -189,6 +191,9 @@ func (s *Server) handleWebsiteConfig(c *gin.Context) {
 			return
 		}
 		site.ExtraConfig = *req.ExtraConfig
+	}
+	if req.WAF != nil {
+		site.WAF = *req.WAF
 	}
 	if req.BasicAuthUser != nil {
 		site.BasicAuthUser = *req.BasicAuthUser

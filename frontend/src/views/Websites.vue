@@ -69,6 +69,12 @@
         <el-form-item label="301-Redirect">
           <el-input v-model="configDialog.redirect" placeholder="https://ziel.de (leer = aus)" />
         </el-form-item>
+        <el-form-item label="WAF (Schutzregeln)">
+          <el-switch v-model="configDialog.waf" />
+          <span style="margin-left: 10px; color: #909399; font-size: 12px">
+            Blockiert SQL-Injection-/XSS-Muster und bekannte Scanner.
+          </span>
+        </el-form-item>
         <el-form-item label="Basic-Auth Benutzer">
           <el-input v-model="configDialog.basic_auth_user" placeholder="leer = kein Schutz" />
         </el-form-item>
@@ -121,6 +127,7 @@ const configDialog = reactive({
   basic_auth_user: '',
   basic_auth_password: '',
   extra_config: '',
+  waf: false,
 })
 
 function setConfig(row: any) {
@@ -129,6 +136,7 @@ function setConfig(row: any) {
   configDialog.basic_auth_user = row.basic_auth_user || ''
   configDialog.basic_auth_password = ''
   configDialog.extra_config = row.extra_config || ''
+  configDialog.waf = !!row.waf
   configDialog.visible = true
 }
 
@@ -138,6 +146,7 @@ async function saveConfig() {
     basic_auth_user: configDialog.basic_auth_user,
     basic_auth_password: configDialog.basic_auth_password,
     extra_config: configDialog.extra_config,
+    waf: configDialog.waf,
   })
   ElMessage.success('Konfiguration gespeichert')
   configDialog.visible = false

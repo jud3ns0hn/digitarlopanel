@@ -68,6 +68,41 @@
         </el-table>
       </el-tab-pane>
 
+      <!-- File integrity -->
+      <el-tab-pane label="Integrität" name="integrity">
+        <div class="toolbar">
+          <el-input v-model="integrityPath" placeholder="/etc/nginx oder /var/www/site/config.php" style="width: 360px" />
+          <el-button type="primary" @click="addIntegrity">Überwachen</el-button>
+          <el-button :loading="scanningIntegrity" @click="scanIntegrity">Jetzt prüfen</el-button>
+          <el-button @click="loadIntegrity">Aktualisieren</el-button>
+        </div>
+        <el-alert :closable="false" type="info" show-icon style="margin-bottom: 12px">
+          Speichert SHA-256-Baselines überwachter Dateien und erkennt spätere Änderungen (Tamper-Schutz).
+          Verzeichnisse werden bis zu 2000 Dateien rekursiv erfasst.
+        </el-alert>
+        <el-table :data="integrity" size="small" max-height="420">
+          <el-table-column prop="path" label="Pfad" show-overflow-tooltip />
+          <el-table-column label="Status" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.status === 'ok'" type="success" size="small">ok</el-tag>
+              <el-tag v-else-if="row.status === 'changed'" type="danger" size="small">geändert</el-tag>
+              <el-tag v-else type="warning" size="small">fehlt</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Geprüft" width="180">
+            <template #default="{ row }">
+              {{ row.last_checked ? new Date(row.last_checked).toLocaleString() : '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Aktionen" width="220">
+            <template #default="{ row }">
+              <el-button link @click="rebaseline(row)">Neu baseline</el-button>
+              <el-button link type="danger" @click="deleteIntegrity(row)">Entfernen</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
       <!-- ClamAV -->
       <el-tab-pane label="ClamAV" name="clamav">
         <div class="toolbar">
@@ -117,6 +152,10 @@ const installing = reactive({ f2b: false, sup: false, clam: false })
 const scanPath = ref('/var/www')
 const scanning = ref(false)
 const scanResult = ref<any>(null)
+
+const integrity = ref<any[]>([])
+const integrityPath = ref('')
+const scanningIntegrity = ref(false)
 
 const jailDialog = reactive<{ visible: boolean; name: string; banned: string[]; banIP: string }>({
   visible: false,
@@ -184,9 +223,48 @@ async function scan() {
   }
 }
 
+async function loadIntegrity() {
+  integrity.value = (await http.get('/integrity')).data
+}
+
+async function addIntegrity() {
+  if (!integrityPath.value) {
+    ElMessage.warning('Pfad eingeben')
+    return
+  }
+  const { data } = await http.post('/integrity', { path: integrityPath.value })
+  ElMessage.success(`${data.tracked} Datei(en) überwacht`)
+  integrityPath.value = ''
+  await loadIntegrity()
+}
+
+async function scanIntegrity() {
+  scanningIntegrity.value = true
+  try {
+    const { data } = await http.post('/integrity/scan')
+    if (data.changes.length) ElMessage.warning(`${data.changes.length} Änderung(en) erkannt!`)
+    else ElMessage.success(`Alle ${data.checked} Dateien unverändert`)
+    await loadIntegrity()
+  } finally {
+    scanningIntegrity.value = false
+  }
+}
+
+async function rebaseline(row: any) {
+  await http.post(`/integrity/${row.id}/rebaseline`)
+  ElMessage.success('Baseline aktualisiert')
+  await loadIntegrity()
+}
+
+async function deleteIntegrity(row: any) {
+  await http.delete(`/integrity/${row.id}`)
+  await loadIntegrity()
+}
+
 onMounted(() => {
   loadFail2ban()
   loadSupervisor()
   loadClamAV()
+  loadIntegrity()
 })
 </script>

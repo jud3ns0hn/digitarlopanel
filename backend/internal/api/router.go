@@ -187,6 +187,17 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	// GPU monitoring (NVIDIA).
 	read.GET("/gpu", s.handleGPUList)
 
+	// Language runtimes (Node, Python, Java, Go).
+	read.GET("/runtimes", s.handleRuntimeList)
+	write.POST("/runtimes/install", s.handleRuntimeInstall)
+
+	// File integrity / tamper protection.
+	read.GET("/integrity", s.handleIntegrityList)
+	write.POST("/integrity/scan", s.handleIntegrityScan)
+	write.POST("/integrity", s.handleIntegrityAdd)
+	write.POST("/integrity/:id/rebaseline", s.handleIntegrityRebaseline)
+	write.DELETE("/integrity/:id", s.handleIntegrityDelete)
+
 	// System toolbox (timezone, hostname, swap, SSH info).
 	read.GET("/toolbox/system", s.handleToolboxSystem)
 	read.GET("/toolbox/timezones", s.handleToolboxTimezones)

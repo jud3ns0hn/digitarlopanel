@@ -13,6 +13,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'assistant', name: 'assistant', component: () => import('../views/Assistant.vue') },
       { path: 'files', name: 'files', component: () => import('../views/Files.vue') },
       { path: 'software', name: 'software', component: () => import('../views/Software.vue') },
+      { path: 'runtimes', name: 'runtimes', component: () => import('../views/Runtimes.vue') },
       { path: 'services', name: 'services', component: () => import('../views/Services.vue') },
       { path: 'websites', name: 'websites', component: () => import('../views/Websites.vue') },
       { path: 'databases', name: 'databases', component: () => import('../views/Databases.vue') },
