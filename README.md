@@ -4,6 +4,26 @@ Ein freies, umfangreiches Server-Administrations-Panel im Stil von aapanel —
 **ohne Paywall**, ohne gesperrte Funktionen. Ausgeliefert als **eine einzige
 Binärdatei** mit eingebettetem Web-Frontend.
 
+## Schnellinstallation (frischer VPS)
+
+Ein Befehl auf einem frisch installierten Server (Ubuntu/Debian **oder**
+RHEL/Rocky/CentOS/Alma). Installiert alle Build-Abhängigkeiten (Go, Node),
+baut das Panel, richtet den systemd-Dienst ein, öffnet die Firewall und zeigt
+das generierte Admin-Passwort an:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jud3ns0hn/digitarlopanel/claude/server-admin-program-h026hq/scripts/bootstrap.sh | sudo bash
+```
+
+Optional anpassbar über Umgebungsvariablen, z.B. ein anderer Port:
+
+```bash
+curl -fsSL .../scripts/bootstrap.sh | sudo DP_PORT=9090 bash
+```
+
+Danach das Panel unter `http://<server-ip>:8088` öffnen und mit `admin` + dem
+ausgegebenen Passwort anmelden.
+
 ## Funktionen (aktueller Stand)
 
 ### Sicherheit
@@ -87,7 +107,7 @@ Binärdatei** mit eingebettetem Web-Frontend.
 ```
 backend/    Go-Server, API, Cross-Distro-Pakete, Embed
 frontend/   Vue-3-SPA (baut nach backend/web/dist)
-scripts/    install.sh (systemd-Installer)
+scripts/    bootstrap.sh (One-Command-Setup), install.sh (systemd-Installer)
 ```
 
 ## Build
@@ -119,6 +139,15 @@ Konsole ausgegeben. Panel öffnen unter `http://<server>:8088`.
 > und Datenbanken verwalten zu können. Passwort nach dem ersten Login ändern.
 
 ## Installation als Dienst
+
+Am einfachsten über das Bootstrap-Skript (siehe **Schnellinstallation** oben).
+Manuell aus einem lokalen Checkout:
+
+```bash
+sudo bash scripts/bootstrap.sh        # baut + installiert + startet alles
+```
+
+Oder bei bereits gebauter Binary nur den Dienst einrichten:
 
 ```bash
 make build
