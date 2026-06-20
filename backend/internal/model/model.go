@@ -4,12 +4,46 @@ import "time"
 
 // User is a panel account.
 type User struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	Username     string    `gorm:"uniqueIndex;size:64;not null" json:"username"`
-	PasswordHash string    `gorm:"not null" json:"-"`
-	Role         string    `gorm:"size:32;default:admin" json:"role"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uint   `gorm:"primaryKey" json:"id"`
+	Username     string `gorm:"uniqueIndex;size:64;not null" json:"username"`
+	PasswordHash string `gorm:"not null" json:"-"`
+	Role         string `gorm:"size:32;default:admin" json:"role"`
+
+	// TwoFAEnabled indicates an active TOTP second factor.
+	TwoFAEnabled bool   `gorm:"default:false" json:"two_fa_enabled"`
+	TwoFASecret  string `gorm:"size:128" json:"-"`
+
+	// TokenVersion is embedded in issued JWTs; bumping it revokes all existing
+	// tokens for this user (used by logout-everywhere and password changes).
+	TokenVersion int `gorm:"default:0" json:"-"`
+
+	// Brute-force protection.
+	FailedAttempts int        `gorm:"default:0" json:"-"`
+	LockedUntil    *time.Time `json:"locked_until,omitempty"`
+
+	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+	LastLoginIP string     `gorm:"size:64" json:"last_login_ip,omitempty"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Valid panel roles, from most to least privileged.
+const (
+	RoleAdmin    = "admin"    // full control, including user management
+	RoleOperator = "operator" // manage services/sites/files, no user management
+	RoleViewer   = "viewer"   // read-only
+)
+
+// Backup records an archive created by the panel.
+type Backup struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"size:128;not null" json:"name"`
+	Type      string    `gorm:"size:32;not null" json:"type"` // files | database
+	Source    string    `gorm:"size:512" json:"source"`       // path or database name
+	Path      string    `gorm:"size:512;not null" json:"path"`
+	Size      int64     `json:"size"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // Website is an Nginx virtual host managed by the panel.
@@ -63,5 +97,6 @@ func AllModels() []any {
 		&DatabaseInstance{},
 		&CronJob{},
 		&AuditLog{},
+		&Backup{},
 	}
 }

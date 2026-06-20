@@ -16,6 +16,12 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+// updateToken replaces the stored token, used when the server re-issues one
+// (e.g. after a password change that revokes other sessions).
+export function updateToken(token: string): void {
+  setToken(token)
+}
+
 const http = axios.create({ baseURL: '/api', timeout: 600000 })
 
 http.interceptors.request.use((config) => {

@@ -5,7 +5,7 @@
       <p class="login-sub">Server-Administration</p>
       <el-form @submit.prevent="onSubmit">
         <el-form-item>
-          <el-input v-model="username" placeholder="Benutzername" size="large" :prefix-icon="User" />
+          <el-input v-model="username" placeholder="Benutzername" size="large" :prefix-icon="User" :disabled="needCode" />
         </el-form-item>
         <el-form-item>
           <el-input
@@ -15,11 +15,22 @@
             size="large"
             show-password
             :prefix-icon="Lock"
+            :disabled="needCode"
+            @keyup.enter="onSubmit"
+          />
+        </el-form-item>
+        <el-form-item v-if="needCode">
+          <el-input
+            v-model="code"
+            placeholder="2FA-Code (6-stellig)"
+            size="large"
+            maxlength="6"
+            :prefix-icon="Key"
             @keyup.enter="onSubmit"
           />
         </el-form-item>
         <el-button type="primary" size="large" :loading="loading" style="width: 100%" @click="onSubmit">
-          Anmelden
+          {{ needCode ? 'Code bestätigen' : 'Anmelden' }}
         </el-button>
       </el-form>
     </el-card>
@@ -30,11 +41,13 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Key } from '@element-plus/icons-vue'
 import { useAuthStore } from '../store/auth'
 
 const username = ref('admin')
 const password = ref('')
+const code = ref('')
+const needCode = ref(false)
 const loading = ref(false)
 const auth = useAuthStore()
 const router = useRouter()
@@ -46,8 +59,13 @@ async function onSubmit() {
   }
   loading.value = true
   try {
-    await auth.login(username.value, password.value)
-    router.push({ name: 'dashboard' })
+    const ok = await auth.login(username.value, password.value, code.value || undefined)
+    if (ok) {
+      router.push({ name: 'dashboard' })
+    } else {
+      needCode.value = true
+      ElMessage.info('Bitte 2FA-Code eingeben')
+    }
   } catch {
     // error toast handled by interceptor
   } finally {

@@ -9,22 +9,25 @@ import (
 
 // Claims is the JWT payload for an authenticated session.
 type Claims struct {
-	UserID   uint   `json:"uid"`
-	Username string `json:"username"`
-	Role     string `json:"role"`
+	UserID       uint   `json:"uid"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	TokenVersion int    `json:"tv"`
 	jwt.RegisteredClaims
 }
 
 // tokenTTL is how long an issued token remains valid.
 const tokenTTL = 12 * time.Hour
 
-// IssueToken creates a signed JWT for the given user.
-func IssueToken(secret string, userID uint, username, role string) (string, error) {
+// IssueToken creates a signed JWT for the given user. tokenVersion is embedded
+// so the token can be revoked server-side by bumping the user's TokenVersion.
+func IssueToken(secret string, userID uint, username, role string, tokenVersion int) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:   userID,
-		Username: username,
-		Role:     role,
+		UserID:       userID,
+		Username:     username,
+		Role:         role,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tokenTTL)),

@@ -3,56 +3,95 @@ package api
 import "github.com/gin-gonic/gin"
 
 // registerRoutes mounts all API endpoints under the given group.
+//
+// Authorization tiers:
+//   - read group (any authenticated user, incl. viewer): GET/read endpoints
+//   - write group (operator + admin): state-changing endpoints
+//   - admin group (admin only): user management
 func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	api.GET("/health", s.handleHealth)
 	api.POST("/login", s.handleLogin)
 
-	auth := api.Group("")
-	auth.Use(s.authRequired())
-	{
-		auth.GET("/me", s.handleMe)
-		auth.POST("/change-password", s.handleChangePassword)
+	read := api.Group("")
+	read.Use(s.authRequired())
+	write := api.Group("")
+	write.Use(s.authRequired(), s.writeRole())
+	admin := api.Group("")
+	admin.Use(s.authRequired(), s.adminOnly())
 
-		// Dashboard / monitoring
-		auth.GET("/system/host", s.handleHostInfo)
-		auth.GET("/system/metrics", s.handleMetrics)
-		auth.GET("/system/metrics/stream", s.handleMetricsStream)
+	// Account self-service (any authenticated user).
+	read.GET("/me", s.handleMe)
+	read.POST("/logout", s.handleLogout)
+	read.POST("/change-password", s.handleChangePassword)
+	read.POST("/2fa/setup", s.handle2FASetup)
+	read.POST("/2fa/enable", s.handle2FAEnable)
+	read.POST("/2fa/disable", s.handle2FADisable)
 
-		// File manager
-		auth.GET("/files/list", s.handleFileList)
-		auth.GET("/files/read", s.handleFileRead)
-		auth.POST("/files/write", s.handleFileWrite)
-		auth.POST("/files/mkdir", s.handleFileMkdir)
-		auth.POST("/files/rename", s.handleFileRename)
-		auth.POST("/files/delete", s.handleFileDelete)
-		auth.POST("/files/chmod", s.handleFileChmod)
-		auth.GET("/files/download", s.handleFileDownload)
-		auth.POST("/files/upload", s.handleFileUpload)
+	// Dashboard / monitoring (read-only).
+	read.GET("/system/host", s.handleHostInfo)
+	read.GET("/system/metrics", s.handleMetrics)
+	read.GET("/system/metrics/stream", s.handleMetricsStream)
 
-		// Software / services
-		auth.GET("/software/list", s.handleSoftwareList)
-		auth.POST("/software/install", s.handleSoftwareInstall)
-		auth.POST("/software/uninstall", s.handleSoftwareUninstall)
-		auth.POST("/software/service", s.handleServiceAction)
+	// File manager.
+	read.GET("/files/list", s.handleFileList)
+	read.GET("/files/read", s.handleFileRead)
+	read.GET("/files/download", s.handleFileDownload)
+	write.POST("/files/write", s.handleFileWrite)
+	write.POST("/files/mkdir", s.handleFileMkdir)
+	write.POST("/files/rename", s.handleFileRename)
+	write.POST("/files/delete", s.handleFileDelete)
+	write.POST("/files/chmod", s.handleFileChmod)
+	write.POST("/files/upload", s.handleFileUpload)
 
-		// Websites
-		auth.GET("/websites", s.handleWebsiteList)
-		auth.POST("/websites", s.handleWebsiteCreate)
-		auth.POST("/websites/:id/toggle", s.handleWebsiteToggle)
-		auth.DELETE("/websites/:id", s.handleWebsiteDelete)
+	// Software / services catalog.
+	read.GET("/software/list", s.handleSoftwareList)
+	write.POST("/software/install", s.handleSoftwareInstall)
+	write.POST("/software/uninstall", s.handleSoftwareUninstall)
+	write.POST("/software/service", s.handleServiceAction)
 
-		// Databases
-		auth.GET("/databases", s.handleDatabaseList)
-		auth.POST("/databases", s.handleDatabaseCreate)
-		auth.DELETE("/databases/:id", s.handleDatabaseDelete)
+	// systemd services.
+	read.GET("/services", s.handleServiceList)
+	write.POST("/services/control", s.handleServiceControl)
 
-		// Cron jobs
-		auth.GET("/cron", s.handleCronList)
-		auth.POST("/cron", s.handleCronCreate)
-		auth.POST("/cron/:id/toggle", s.handleCronToggle)
-		auth.DELETE("/cron/:id", s.handleCronDelete)
+	// Websites.
+	read.GET("/websites", s.handleWebsiteList)
+	write.POST("/websites", s.handleWebsiteCreate)
+	write.POST("/websites/:id/toggle", s.handleWebsiteToggle)
+	write.DELETE("/websites/:id", s.handleWebsiteDelete)
 
-		// Audit log
-		auth.GET("/audit", s.handleAuditList)
-	}
+	// Databases.
+	read.GET("/databases", s.handleDatabaseList)
+	write.POST("/databases", s.handleDatabaseCreate)
+	write.DELETE("/databases/:id", s.handleDatabaseDelete)
+
+	// Cron jobs.
+	read.GET("/cron", s.handleCronList)
+	write.POST("/cron", s.handleCronCreate)
+	write.POST("/cron/:id/toggle", s.handleCronToggle)
+	write.DELETE("/cron/:id", s.handleCronDelete)
+
+	// Firewall.
+	read.GET("/firewall", s.handleFirewallStatus)
+	write.POST("/firewall/allow", s.handleFirewallAllow)
+	write.POST("/firewall/deny", s.handleFirewallDeny)
+
+	// Logs.
+	read.GET("/logs/journal", s.handleLogJournal)
+	read.GET("/logs/file", s.handleLogFile)
+
+	// Backups.
+	read.GET("/backups", s.handleBackupList)
+	read.GET("/backups/:id/download", s.handleBackupDownload)
+	write.POST("/backups", s.handleBackupCreate)
+	write.DELETE("/backups/:id", s.handleBackupDelete)
+
+	// Audit log (read-only).
+	read.GET("/audit", s.handleAuditList)
+
+	// User management (admin only).
+	admin.GET("/users", s.handleUserList)
+	admin.POST("/users", s.handleUserCreate)
+	admin.POST("/users/:id/role", s.handleUserRole)
+	admin.POST("/users/:id/password", s.handleUserResetPassword)
+	admin.DELETE("/users/:id", s.handleUserDelete)
 }

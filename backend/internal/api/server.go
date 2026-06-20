@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/config"
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/firewall"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/osinfo"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/pkgmgr"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/runner"
@@ -22,6 +23,7 @@ type Server struct {
 	runner       runner.Runner
 	pkg          *pkgmgr.Manager
 	service      *service.Controller
+	firewall     *firewall.Manager
 	loginLimiter *rateLimiter
 }
 
@@ -36,6 +38,7 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 		runner:       run,
 		pkg:          pkgmgr.New(osi.Family, run),
 		service:      service.New(run),
+		firewall:     firewall.New(run),
 		loginLimiter: newRateLimiter(10, time.Minute),
 	}
 }
@@ -45,7 +48,7 @@ func NewServer(cfg *config.Config, db *gorm.DB) *Server {
 func (s *Server) Handler(webFS fs.FS) http.Handler {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	r.Use(gin.Recovery(), requestLogger())
+	r.Use(gin.Recovery(), requestLogger(), securityHeaders())
 
 	api := r.Group("/api")
 	s.registerRoutes(api)

@@ -12,6 +12,7 @@ import (
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/api"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/config"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/database"
+	"github.com/jud3ns0hn/digitarlopanel/backend/internal/pkg/certgen"
 	"github.com/jud3ns0hn/digitarlopanel/backend/web"
 )
 
@@ -51,7 +52,28 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
-	log.Printf("DigitarloPanel listening on %s", cfg.Listen)
+	if cfg.TLSEnabled {
+		certPath := cfg.TLSCert
+		keyPath := cfg.TLSKey
+		if certPath == "" {
+			certPath = cfg.DataDir + "/panel-cert.pem"
+		}
+		if keyPath == "" {
+			keyPath = cfg.DataDir + "/panel-key.pem"
+		}
+		if cfg.TLSAutoSelfSigned {
+			if err := certgen.EnsureSelfSigned(certPath, keyPath); err != nil {
+				log.Fatalf("generate self-signed certificate: %v", err)
+			}
+		}
+		log.Printf("DigitarloPanel listening on https://%s", cfg.Listen)
+		if err := httpServer.ListenAndServeTLS(certPath, keyPath); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
+		}
+		return
+	}
+
+	log.Printf("DigitarloPanel listening on http://%s", cfg.Listen)
 	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}

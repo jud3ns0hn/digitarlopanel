@@ -67,6 +67,39 @@ func (c *Controller) Disable(ctx context.Context, unit string) (string, error) {
 	return c.systemctl(ctx, "disable", unit)
 }
 
+// Unit summarizes a systemd service unit from `systemctl list-units`.
+type Unit struct {
+	Name        string `json:"name"`
+	Load        string `json:"load"`
+	Active      string `json:"active"`
+	Sub         string `json:"sub"`
+	Description string `json:"description"`
+}
+
+// List returns the service units known to systemd (including inactive ones).
+func (c *Controller) List(ctx context.Context) ([]Unit, error) {
+	res, err := c.runner.Run(ctx, "systemctl", "list-units",
+		"--type=service", "--all", "--no-legend", "--plain", "--no-pager")
+	if err != nil {
+		return nil, fmt.Errorf("list units: %w", err)
+	}
+	var units []Unit
+	for _, line := range strings.Split(res.Stdout, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		units = append(units, Unit{
+			Name:        fields[0],
+			Load:        fields[1],
+			Active:      fields[2],
+			Sub:         fields[3],
+			Description: strings.Join(fields[4:], " "),
+		})
+	}
+	return units, nil
+}
+
 // Status reports whether a unit is active and enabled. systemctl returns a
 // non-zero exit code for inactive units, which is expected and not an error.
 func (c *Controller) Status(ctx context.Context, unit string) Status {

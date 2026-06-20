@@ -18,6 +18,14 @@ type Config struct {
 	JWTSecret string `json:"jwt_secret"`
 	// FileRoot constrains the file manager. Empty means the whole filesystem ("/").
 	FileRoot string `json:"file_root"`
+	// BackupDir is where archive backups are written.
+	BackupDir string `json:"backup_dir"`
+
+	// TLS configures HTTPS for the panel itself.
+	TLSEnabled        bool   `json:"tls_enabled"`
+	TLSCert           string `json:"tls_cert"`
+	TLSKey            string `json:"tls_key"`
+	TLSAutoSelfSigned bool   `json:"tls_auto_self_signed"`
 }
 
 // DBPath returns the path to the SQLite database file.
@@ -28,9 +36,10 @@ func (c *Config) DBPath() string {
 // Default returns a configuration with sensible defaults.
 func Default() *Config {
 	return &Config{
-		Listen:   ":8088",
-		DataDir:  "/var/lib/digitarlopanel",
-		FileRoot: "/",
+		Listen:    ":8088",
+		DataDir:   "/var/lib/digitarlopanel",
+		FileRoot:  "/",
+		BackupDir: "/var/backups/digitarlopanel",
 	}
 }
 
@@ -59,6 +68,9 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.FileRoot == "" {
 		cfg.FileRoot = "/"
+	}
+	if cfg.BackupDir == "" {
+		cfg.BackupDir = Default().BackupDir
 	}
 	if cfg.JWTSecret == "" {
 		secret, err := randomSecret(32)
