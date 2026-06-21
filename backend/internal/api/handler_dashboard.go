@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,31 @@ func (s *Server) handleProcesses(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, procs)
+}
+
+type killProcessRequest struct {
+	PID    int    `json:"pid" binding:"required"`
+	Signal string `json:"signal"` // TERM (default) or KILL
+}
+
+// handleProcessKill sends a termination signal to a process. Admin-only and
+// audited; the panel runs as root so this can stop any process.
+func (s *Server) handleProcessKill(c *gin.Context) {
+	var req killProcessRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.PID <= 1 {
+		badRequest(c, "valid pid (> 1) required")
+		return
+	}
+	sig := "-TERM"
+	if req.Signal == "KILL" {
+		sig = "-KILL"
+	}
+	if res, err := s.runner.Run(c.Request.Context(), "kill", sig, strconv.Itoa(req.PID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": res.CombinedOutput()})
+		return
+	}
+	s.audit(c, "process_kill", sig+" "+strconv.Itoa(req.PID))
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
 func (s *Server) handleMetrics(c *gin.Context) {

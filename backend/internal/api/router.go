@@ -32,6 +32,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/system/metrics", s.handleMetrics)
 	read.GET("/system/metrics/stream", s.handleMetricsStream)
 	read.GET("/system/processes", s.handleProcesses)
+	admin.POST("/system/processes/kill", s.handleProcessKill)
 	read.GET("/system/history", s.handleMetricsHistory)
 
 	// File manager.

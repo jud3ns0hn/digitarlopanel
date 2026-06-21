@@ -59,6 +59,11 @@
         <el-table-column label="Speicher %" width="120">
           <template #default="{ row }">{{ row.memory.toFixed(1) }}</template>
         </el-table-column>
+        <el-table-column v-if="auth.isAdmin" label="" width="120" align="right">
+          <template #default="{ row }">
+            <el-button link type="danger" size="small" @click="killProcess(row)">Beenden</el-button>
+          </template>
+        </el-table-column>
       </el-table>
     </el-card>
 
@@ -81,8 +86,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import http, { getToken } from '../api/client'
 import { formatBytes, formatUptime } from '../utils/format'
+import { useAuthStore } from '../store/auth'
+
+const auth = useAuthStore()
 
 interface Metrics {
   cpu_percent: number
@@ -159,6 +168,25 @@ function connect() {
 async function loadProcesses() {
   const { data } = await http.get('/system/processes')
   processes.value = data
+}
+
+async function killProcess(row: any) {
+  try {
+    await ElMessageBox.confirm(
+      `Prozess „${row.name}" (PID ${row.pid}) beenden?`,
+      'Prozess beenden',
+      { type: 'warning', confirmButtonText: 'Beenden (TERM)', distinguishCancelAndClose: true },
+    )
+  } catch {
+    return
+  }
+  try {
+    await http.post('/system/processes/kill', { pid: row.pid, signal: 'TERM' })
+    ElMessage.success('Signal gesendet')
+    setTimeout(loadProcesses, 800)
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'Konnte Prozess nicht beenden')
+  }
 }
 
 async function loadHistory() {
