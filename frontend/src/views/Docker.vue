@@ -34,12 +34,12 @@
           </el-table-column>
           <el-table-column prop="status" label="Detail" />
           <el-table-column prop="ports" label="Ports" />
-          <el-table-column label="Aktionen" width="360">
+          <el-table-column label="Aktionen" width="400" align="right">
             <template #default="{ row }">
+              <el-button link type="primary" @click="openDetail(row)">Details</el-button>
               <el-button link type="success" @click="action(row, 'start')">Start</el-button>
               <el-button link @click="action(row, 'stop')">Stop</el-button>
               <el-button link @click="action(row, 'restart')">Neustart</el-button>
-              <el-button link @click="showLogs(row)">Logs</el-button>
               <el-button link type="danger" @click="remove(row)">Entfernen</el-button>
             </template>
           </el-table-column>
@@ -78,14 +78,49 @@
       </el-card>
     </template>
 
-    <el-dialog v-model="logsDialog.visible" :title="`Logs: ${logsDialog.name}`" width="70%">
-      <pre style="max-height: 480px; overflow: auto; font-size: 12px">{{ logsDialog.text }}</pre>
-    </el-dialog>
+    <el-drawer v-model="detailDrawer.visible" :title="detailDrawer.name" size="640px" @open="loadInspect">
+      <el-tabs v-model="detailDrawer.tab">
+        <el-tab-pane label="Details" name="details">
+          <el-skeleton v-if="!inspect" :rows="6" animated />
+          <template v-else>
+            <el-descriptions :column="1" border size="small">
+              <el-descriptions-item label="Name">{{ inspect.name }}</el-descriptions-item>
+              <el-descriptions-item label="Image">{{ inspect.image }}</el-descriptions-item>
+              <el-descriptions-item label="Status">
+                <el-tag :type="inspect.state === 'running' ? 'success' : 'info'" size="small">{{ inspect.state }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="Restart-Policy">{{ inspect.restart_policy || '–' }}</el-descriptions-item>
+              <el-descriptions-item label="Erstellt">{{ formatDate(inspect.created) }}</el-descriptions-item>
+              <el-descriptions-item label="Command">{{ inspect.command || '–' }}</el-descriptions-item>
+              <el-descriptions-item label="Netzwerke">{{ (inspect.networks || []).join(', ') || '–' }}</el-descriptions-item>
+            </el-descriptions>
+
+            <el-divider content-position="left">Ports</el-divider>
+            <el-empty v-if="!portList.length" description="Keine veröffentlichten Ports" :image-size="50" />
+            <el-tag v-for="p in portList" :key="p" style="margin: 2px">{{ p }}</el-tag>
+
+            <el-divider content-position="left">Volumes / Mounts</el-divider>
+            <el-empty v-if="!(inspect.mounts || []).length" description="Keine Mounts" :image-size="50" />
+            <div v-for="m in inspect.mounts" :key="m" class="mono-line">{{ m }}</div>
+
+            <el-divider content-position="left">Umgebungsvariablen</el-divider>
+            <div v-for="e in inspect.env" :key="e" class="mono-line">{{ e }}</div>
+
+            <el-divider content-position="left">Live-Stats</el-divider>
+            <pre class="statbox">{{ stats || 'lade …' }}</pre>
+          </template>
+        </el-tab-pane>
+        <el-tab-pane label="Logs" name="logs">
+          <el-button :icon="undefined" size="small" @click="loadDrawerLogs" style="margin-bottom: 8px">Aktualisieren</el-button>
+          <pre class="logbox">{{ drawerLogs || '(keine Logs)' }}</pre>
+        </el-tab-pane>
+      </el-tabs>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import http from '../api/client'
 
@@ -95,7 +130,46 @@ const volumes = ref<any[]>([])
 const pullImage = ref('')
 const pulling = ref(false)
 const installing = ref(false)
-const logsDialog = reactive({ visible: false, name: '', text: '' })
+
+const detailDrawer = reactive<{ visible: boolean; tab: string; id: string; name: string }>({
+  visible: false, tab: 'details', id: '', name: '',
+})
+const inspect = ref<any>(null)
+const stats = ref('')
+const drawerLogs = ref('')
+
+const portList = computed(() => {
+  if (!inspect.value?.ports) return []
+  return Object.entries(inspect.value.ports).map(([k, v]) => (v ? `${v} → ${k}` : k))
+})
+
+function formatDate(s?: string) {
+  if (!s) return '–'
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? s : d.toLocaleString()
+}
+
+function openDetail(row: any) {
+  detailDrawer.id = row.id
+  detailDrawer.name = row.name
+  detailDrawer.tab = 'details'
+  inspect.value = null
+  stats.value = ''
+  drawerLogs.value = ''
+  detailDrawer.visible = true
+}
+
+async function loadInspect() {
+  const { data } = await http.get('/docker/inspect', { params: { id: detailDrawer.id } })
+  inspect.value = data.detail
+  stats.value = data.stats || '(keine Stats)'
+  await loadDrawerLogs()
+}
+
+async function loadDrawerLogs() {
+  const { data } = await http.get('/docker/logs', { params: { id: detailDrawer.id } })
+  drawerLogs.value = data.logs || ''
+}
 
 async function installDocker() {
   installing.value = true
@@ -128,13 +202,6 @@ async function load() {
     networks.value = n.data
     volumes.value = v.data
   }
-}
-
-async function showLogs(row: any) {
-  const { data: res } = await http.get('/docker/logs', { params: { id: row.id } })
-  logsDialog.name = row.name
-  logsDialog.text = res.logs || '(keine Logs)'
-  logsDialog.visible = true
 }
 
 async function prune() {
@@ -173,3 +240,32 @@ async function pull() {
 
 onMounted(load)
 </script>
+
+<style scoped>
+.empty-card {
+  padding: 32px 0;
+}
+.mono-line {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  padding: 2px 0;
+  word-break: break-all;
+  color: #606266;
+}
+.logbox,
+.statbox {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.statbox {
+  max-height: 160px;
+}
+</style>

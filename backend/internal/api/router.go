@@ -110,6 +110,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 
 	// Docker.
 	read.GET("/docker", s.handleDockerStatus)
+	read.GET("/docker/inspect", s.handleDockerInspect)
 	write.POST("/docker/install", s.handleDockerInstall)
 	read.GET("/docker/networks", s.handleDockerNetworks)
 	read.GET("/docker/volumes", s.handleDockerVolumes)

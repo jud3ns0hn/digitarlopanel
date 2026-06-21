@@ -1,8 +1,13 @@
 <template>
   <div>
     <h2 class="page-title">App-Store</h2>
-    <el-alert v-if="data && !data.available" :closable="false" type="info" show-icon style="margin-bottom: 16px">
-      Docker ist nicht installiert. Über „Software" bzw. die Shell installierbar.
+    <el-alert v-if="data && !data.available" :closable="false" type="warning" show-icon style="margin-bottom: 16px">
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span>Docker wird für den App-Store benötigt, ist aber nicht installiert.</span>
+        <el-button type="primary" size="small" :loading="installingDocker" @click="installDocker">
+          Docker installieren
+        </el-button>
+      </div>
     </el-alert>
 
     <div class="toolbar">
@@ -51,6 +56,21 @@ import http from '../api/client'
 const data = ref<any>(null)
 const search = ref('')
 const installing = ref('')
+const installingDocker = ref(false)
+
+async function installDocker() {
+  installingDocker.value = true
+  try {
+    ElMessage.info('Docker wird installiert … (kann ein bis zwei Minuten dauern)')
+    await http.post('/docker/install')
+    ElMessage.success('Docker installiert')
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'Docker-Installation fehlgeschlagen')
+  } finally {
+    installingDocker.value = false
+  }
+}
 
 const filteredGroups = computed(() => {
   if (!data.value) return []

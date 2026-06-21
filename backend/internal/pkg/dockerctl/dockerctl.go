@@ -213,6 +213,101 @@ func (m *Manager) ContainerStats(ctx context.Context, id string) (string, error)
 	return strings.TrimSpace(res.CombinedOutput()), err
 }
 
+// ContainerDetail is a normalized subset of `docker inspect` output.
+type ContainerDetail struct {
+	ID            string            `json:"id"`
+	Name          string            `json:"name"`
+	Image         string            `json:"image"`
+	State         string            `json:"state"`
+	Status        string            `json:"status"`
+	RestartPolicy string            `json:"restart_policy"`
+	Created       string            `json:"created"`
+	Command       string            `json:"command"`
+	Env           []string          `json:"env"`
+	Ports         map[string]string `json:"ports"`
+	Mounts        []string          `json:"mounts"`
+	Networks      []string          `json:"networks"`
+}
+
+// Inspect returns structured details for a single container.
+func (m *Manager) Inspect(ctx context.Context, id string) (*ContainerDetail, error) {
+	if !validName(id) {
+		return nil, fmt.Errorf("invalid container id")
+	}
+	res, err := m.runner.Run(ctx, "docker", "inspect", id)
+	if err != nil {
+		return nil, fmt.Errorf("docker inspect: %s", res.CombinedOutput())
+	}
+	var raw []struct {
+		ID      string `json:"Id"`
+		Name    string `json:"Name"`
+		Created string `json:"Created"`
+		State   struct {
+			Status string `json:"Status"`
+		} `json:"State"`
+		Config struct {
+			Image string   `json:"Image"`
+			Env   []string `json:"Env"`
+			Cmd   []string `json:"Cmd"`
+		} `json:"Config"`
+		HostConfig struct {
+			RestartPolicy struct {
+				Name string `json:"Name"`
+			} `json:"RestartPolicy"`
+		} `json:"HostConfig"`
+		Mounts []struct {
+			Source      string `json:"Source"`
+			Destination string `json:"Destination"`
+		} `json:"Mounts"`
+		NetworkSettings struct {
+			Networks map[string]struct{} `json:"Networks"`
+			Ports    map[string][]struct {
+				HostIP   string `json:"HostIp"`
+				HostPort string `json:"HostPort"`
+			} `json:"Ports"`
+		} `json:"NetworkSettings"`
+	}
+	if err := json.Unmarshal([]byte(res.Stdout), &raw); err != nil || len(raw) == 0 {
+		return nil, fmt.Errorf("parse inspect output")
+	}
+	r := raw[0]
+	d := &ContainerDetail{
+		ID:            shortID(r.ID),
+		Name:          strings.TrimPrefix(r.Name, "/"),
+		Image:         r.Config.Image,
+		State:         r.State.Status,
+		Status:        r.State.Status,
+		RestartPolicy: r.HostConfig.RestartPolicy.Name,
+		Created:       r.Created,
+		Command:       strings.Join(r.Config.Cmd, " "),
+		Env:           r.Config.Env,
+		Ports:         map[string]string{},
+		Mounts:        []string{},
+		Networks:      []string{},
+	}
+	for name := range r.NetworkSettings.Networks {
+		d.Networks = append(d.Networks, name)
+	}
+	for _, mnt := range r.Mounts {
+		d.Mounts = append(d.Mounts, mnt.Source+" → "+mnt.Destination)
+	}
+	for port, binds := range r.NetworkSettings.Ports {
+		if len(binds) > 0 {
+			d.Ports[port] = binds[0].HostIP + ":" + binds[0].HostPort
+		} else {
+			d.Ports[port] = ""
+		}
+	}
+	return d, nil
+}
+
+func shortID(id string) string {
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
+}
+
 // Prune removes unused docker data (containers, networks, images, build cache).
 func (m *Manager) Prune(ctx context.Context) (string, error) {
 	res, err := m.runner.Run(ctx, "docker", "system", "prune", "-f")

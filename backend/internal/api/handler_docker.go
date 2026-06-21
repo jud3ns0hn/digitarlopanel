@@ -46,6 +46,19 @@ func (s *Server) handleDockerStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"available": true, "containers": containers, "images": images})
 }
 
+// handleDockerInspect returns structured details for a single container.
+func (s *Server) handleDockerInspect(c *gin.Context) {
+	id := c.Query("id")
+	detail, err := s.docker.Inspect(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// A live resource snapshot, best effort.
+	stats, _ := s.docker.ContainerStats(c.Request.Context(), id)
+	c.JSON(http.StatusOK, gin.H{"detail": detail, "stats": stats})
+}
+
 func (s *Server) handleDockerNetworks(c *gin.Context) {
 	nets, err := s.docker.Networks(c.Request.Context())
 	if err != nil {
