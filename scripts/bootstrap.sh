@@ -93,6 +93,18 @@ EOF
   systemctl enable --now digitarlopanel
 }
 
+install_docker() {
+  [[ "${DP_DOCKER:-1}" == "1" ]] || { log "Skipping Docker install (DP_DOCKER=0)"; return; }
+  if command -v docker >/dev/null 2>&1; then log "Docker already installed"; return; fi
+  log "Installing Docker Engine (needed for App-Store / App-Stacks)"
+  if curl -fsSL https://get.docker.com | sh >/dev/null 2>&1; then
+    systemctl enable --now docker >/dev/null 2>&1 || true
+    log "Docker installed"
+  else
+    warn "Docker install failed — you can install it later from the panel's Docker page"
+  fi
+}
+
 open_firewall() {
   if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     log "Opening port $PORT in ufw"; ufw allow "${PORT}/tcp" || warn "ufw rule failed"
@@ -333,5 +345,6 @@ else
   source_build
 fi
 
+install_docker
 open_firewall
 print_summary

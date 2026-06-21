@@ -2,9 +2,17 @@
   <div>
     <h2 class="page-title">Docker</h2>
 
-    <el-alert v-if="data && !data.available" :closable="false" type="info" show-icon>
-      Docker ist auf diesem Server nicht installiert. Über „Software“ oder die Shell installierbar.
-    </el-alert>
+    <el-card v-if="data && !data.available" shadow="never" class="empty-card">
+      <el-empty description="Docker ist auf diesem Server nicht installiert">
+        <p style="color: #909399; max-width: 460px; margin: 0 auto 16px">
+          Docker wird für den App-Store und App-Stacks benötigt. Ein Klick installiert
+          die offizielle Docker Engine (inkl. Compose) und aktiviert den Dienst.
+        </p>
+        <el-button type="primary" :loading="installing" @click="installDocker">
+          Docker jetzt installieren
+        </el-button>
+      </el-empty>
+    </el-card>
 
     <template v-else>
       <div class="toolbar">
@@ -86,7 +94,31 @@ const networks = ref<any[]>([])
 const volumes = ref<any[]>([])
 const pullImage = ref('')
 const pulling = ref(false)
+const installing = ref(false)
 const logsDialog = reactive({ visible: false, name: '', text: '' })
+
+async function installDocker() {
+  installing.value = true
+  try {
+    await ElMessageBox.confirm(
+      'Die offizielle Docker Engine wird installiert (get.docker.com). Das kann ein bis zwei Minuten dauern.',
+      'Docker installieren',
+      { type: 'info', confirmButtonText: 'Installieren' },
+    )
+    ElMessage.info('Docker wird installiert …')
+    const { data: res } = await http.post('/docker/install')
+    if (res.available) {
+      ElMessage.success('Docker installiert')
+      await load()
+    } else {
+      ElMessage.warning('Installation lief, Docker aber nicht erkannt — Seite neu laden')
+    }
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error(e?.response?.data?.error || 'Installation fehlgeschlagen')
+  } finally {
+    installing.value = false
+  }
+}
 
 async function load() {
   const res = await http.get('/docker')

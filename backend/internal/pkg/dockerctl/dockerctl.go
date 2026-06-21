@@ -28,6 +28,14 @@ func New(r runner.Runner) *Manager {
 // Available reports whether the docker CLI is present.
 func (m *Manager) Available() bool { return m.available }
 
+// Recheck re-detects the docker CLI (e.g. after installing it at runtime) and
+// returns the new availability.
+func (m *Manager) Recheck() bool {
+	_, err := exec.LookPath("docker")
+	m.available = err == nil
+	return m.available
+}
+
 // Container is a normalized docker container summary.
 type Container struct {
 	ID     string `json:"id"`

@@ -6,7 +6,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// handleDockerInstall installs the Docker Engine via Docker's official
+// convenience script (works on Debian/Ubuntu and RHEL/Rocky/CentOS), enables
+// the service and re-detects the CLI so Docker features work without a restart.
+func (s *Server) handleDockerInstall(c *gin.Context) {
+	ctx := c.Request.Context()
+	if s.docker.Available() {
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "already": true})
+		return
+	}
+	// Fixed command string (no user input) piped into a shell.
+	if res, err := s.runner.Run(ctx, "sh", "-c", "curl -fsSL https://get.docker.com | sh"); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "docker install failed: " + res.CombinedOutput()})
+		return
+	}
+	_, _ = s.service.Enable(ctx, "docker")
+	_, _ = s.service.Start(ctx, "docker")
+	available := s.docker.Recheck()
+	s.audit(c, "docker_install", "")
+	c.JSON(http.StatusOK, gin.H{"status": "ok", "available": available})
+}
+
 func (s *Server) handleDockerStatus(c *gin.Context) {
+	// Re-detect each call so a Docker installed after startup is picked up live.
+	if !s.docker.Available() {
+		s.docker.Recheck()
+	}
 	if !s.docker.Available() {
 		c.JSON(http.StatusOK, gin.H{"available": false})
 		return
