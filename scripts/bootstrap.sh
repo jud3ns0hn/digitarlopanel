@@ -100,6 +100,27 @@ open_firewall() {
     log "Opening port $PORT in firewalld"
     firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || warn "firewalld rule failed"
     firewall-cmd --reload >/dev/null 2>&1 || true
+  elif command -v iptables >/dev/null 2>&1; then
+    # Oracle Cloud / some cloud Ubuntu images ship a raw-iptables firewall with a
+    # default REJECT rule and no ufw/firewalld. Insert an ACCEPT before the first
+    # REJECT/DROP so the panel port is reachable, then persist it.
+    if ! iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
+      local pos
+      pos="$(iptables -L INPUT --line-numbers -n 2>/dev/null | awk '/REJECT|DROP/{print $1; exit}')"
+      if [[ -n "$pos" ]]; then
+        log "Opening port $PORT in iptables (before rule $pos)"
+        iptables -I INPUT "$pos" -p tcp --dport "$PORT" -j ACCEPT || warn "iptables rule failed"
+      else
+        log "Appending iptables ACCEPT for port $PORT"
+        iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT || warn "iptables rule failed"
+      fi
+      # Persist across reboots (best effort).
+      if command -v netfilter-persistent >/dev/null 2>&1; then
+        netfilter-persistent save >/dev/null 2>&1 || true
+      elif [[ -d /etc/iptables ]]; then
+        iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+      fi
+    fi
   fi
 }
 
@@ -130,19 +151,34 @@ EOF
 # ============================================================================
 #  FAST PATH: download a prebuilt binary (default)
 # ============================================================================
+# fetch_dist <remote-name> <output-path>: download dist/<remote-name>. Uses the
+# GitHub API with a token when DP_TOKEN is set (works for PRIVATE repos), else
+# the public raw URL.
+fetch_dist() {
+  local name="$1" out="$2"
+  if [[ -n "${DP_TOKEN:-}" ]]; then
+    curl -fSL --retry 3 \
+      -H "Authorization: Bearer ${DP_TOKEN}" \
+      -H "Accept: application/vnd.github.raw" \
+      -o "$out" \
+      "https://api.github.com/repos/${REPO_SLUG}/contents/dist/${name}?ref=${BRANCH}"
+  else
+    curl -fSL --retry 3 -o "$out" "${RAW_BASE}/dist/${name}"
+  fi
+}
+
 download_install() {
   command -v curl >/dev/null 2>&1 || pkg_install curl ca-certificates
   command -v gzip >/dev/null 2>&1 || pkg_install gzip
 
-  local url="${RAW_BASE}/dist/digitarlopanel-linux-${ARCH}.gz"
   local tmp; tmp="$(mktemp -d)"
-  log "Downloading prebuilt binary ($ARCH)"
-  if ! curl -fSL --retry 3 -o "$tmp/dp.gz" "$url"; then
+  log "Downloading prebuilt binary ($ARCH)${DP_TOKEN:+ via GitHub API (private)}"
+  if ! fetch_dist "digitarlopanel-linux-${ARCH}.gz" "$tmp/dp.gz"; then
     rm -rf "$tmp"; return 1
   fi
 
   # Verify checksum if the manifest is reachable (best effort).
-  if curl -fsSL --retry 2 -o "$tmp/SHA256SUMS" "${RAW_BASE}/dist/SHA256SUMS" 2>/dev/null; then
+  if fetch_dist "SHA256SUMS" "$tmp/SHA256SUMS" 2>/dev/null; then
     local want got
     want="$(grep "digitarlopanel-linux-${ARCH}.gz" "$tmp/SHA256SUMS" | awk '{print $1}')"
     got="$(sha256sum "$tmp/dp.gz" | awk '{print $1}')"
@@ -156,6 +192,39 @@ download_install() {
   chmod +x "$tmp/dp"
   install_service "$tmp/dp"
   rm -rf "$tmp"
+}
+
+# ============================================================================
+#  PRIVATE-REPO PATH: clone via SSH deploy key / token, install prebuilt binary
+# ============================================================================
+# Set DP_SSH=1 to clone over SSH (deploy key). Point DP_SSH_KEY at the key file
+# if it is not in root's ~/.ssh (e.g. DP_SSH_KEY=/home/ubuntu/.ssh/deploy_key).
+clone_install() {
+  command -v git >/dev/null 2>&1 || pkg_install git
+  command -v gzip >/dev/null 2>&1 || pkg_install gzip
+  export GIT_TERMINAL_PROMPT=0   # never hang on an interactive credential prompt
+
+  local url
+  if [[ "${DP_SSH:-0}" == "1" ]]; then
+    url="git@github.com:${REPO_SLUG}.git"
+    [[ -n "${DP_SSH_KEY:-}" ]] && export GIT_SSH_COMMAND="ssh -i ${DP_SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+  elif [[ -n "${DP_TOKEN:-}" ]]; then
+    url="https://x-access-token:${DP_TOKEN}@github.com/${REPO_SLUG}.git"
+  else
+    return 1   # no private credentials available
+  fi
+
+  local tmp; tmp="$(mktemp -d)"
+  log "Cloning ${REPO_SLUG} (${BRANCH}) for prebuilt binary"
+  if ! git clone --depth 1 --branch "$BRANCH" "$url" "$tmp/repo" 2>/dev/null; then
+    rm -rf "$tmp"; return 1
+  fi
+  local gz="$tmp/repo/dist/digitarlopanel-linux-${ARCH}.gz"
+  if [[ -f "$gz" ]]; then
+    gzip -dc "$gz" > "$tmp/dp" && chmod +x "$tmp/dp"
+    install_service "$tmp/dp"; rm -rf "$tmp"; return 0
+  fi
+  rm -rf "$tmp"; return 1
 }
 
 # ============================================================================
@@ -219,6 +288,15 @@ source_build() {
   ensure_node
   export PATH="/usr/local/go/bin:$PATH"
 
+  export GIT_TERMINAL_PROMPT=0   # fail fast instead of prompting for credentials
+  local clone_url="$REPO_URL"
+  if [[ "${DP_SSH:-0}" == "1" ]]; then
+    clone_url="git@github.com:${REPO_SLUG}.git"
+    [[ -n "${DP_SSH_KEY:-}" ]] && export GIT_SSH_COMMAND="ssh -i ${DP_SSH_KEY} -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+  elif [[ -n "${DP_TOKEN:-}" ]]; then
+    clone_url="https://x-access-token:${DP_TOKEN}@github.com/${REPO_SLUG}.git"
+  fi
+
   local root
   local sd; sd="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
   if [[ -n "$sd" && -f "$sd/../backend/go.mod" ]]; then
@@ -228,7 +306,8 @@ source_build() {
       git -C "$SRC_DIR" fetch --depth 1 origin "$BRANCH"
       git -C "$SRC_DIR" reset --hard "origin/$BRANCH"
     else
-      git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$SRC_DIR"
+      git clone --depth 1 --branch "$BRANCH" "$clone_url" "$SRC_DIR" \
+        || die "git clone failed. For a PRIVATE repo, set DP_TOKEN=<github-pat> or DP_SSH=1 (with DP_SSH_KEY), or make the repo public."
     fi
     root="$SRC_DIR"
   fi
@@ -244,11 +323,13 @@ source_build() {
 # --- dispatch ---------------------------------------------------------------
 if [[ "${DP_BUILD:-0}" == "1" ]]; then
   source_build
+elif download_install; then
+  :
+elif clone_install; then
+  :
 else
-  if ! download_install; then
-    warn "Prebuilt download failed — falling back to building from source"
-    source_build
-  fi
+  warn "Prebuilt install failed — falling back to building from source"
+  source_build
 fi
 
 open_firewall

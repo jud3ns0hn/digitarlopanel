@@ -7,9 +7,9 @@ Binärdatei** mit eingebettetem Web-Frontend.
 ## Schnellinstallation (frischer VPS)
 
 Ein Befehl auf einem frisch installierten Server (Ubuntu/Debian **oder**
-RHEL/Rocky/CentOS/Alma). Installiert alle Build-Abhängigkeiten (Go, Node),
-baut das Panel, richtet den systemd-Dienst ein, öffnet die Firewall und zeigt
-das generierte Admin-Passwort an:
+RHEL/Rocky/CentOS/Alma). Lädt eine **vorgebaute Binary** (kein Build auf dem
+Server nötig), richtet den systemd-Dienst ein, öffnet die Firewall (ufw,
+firewalld **oder** rohes iptables) und zeigt das generierte Admin-Passwort an:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jud3ns0hn/digitarlopanel/refs/heads/claude/server-admin-program-h026hq/scripts/bootstrap.sh | sudo bash
@@ -23,6 +23,41 @@ curl -fsSL .../scripts/bootstrap.sh | sudo DP_PORT=9090 bash
 
 Danach das Panel unter `http://<server-ip>:8088` öffnen und mit `admin` + dem
 ausgegebenen Passwort anmelden.
+
+### Privates Repo
+
+Ein **Deploy Key (SSH) funktioniert NICHT** für den Direkt-Download über
+`raw.githubusercontent.com` (das ist HTTPS, kein git). Drei Möglichkeiten:
+
+1. **Repo öffentlich stellen** (einfachste Lösung) — der Befehl oben läuft dann
+   ohne Token.
+2. **GitHub-Token (PAT)** mit `Contents: read` — funktioniert ohne SSH-Key:
+   ```bash
+   curl -fsSL -H "Authorization: Bearer $GH" \
+     "https://api.github.com/repos/jud3ns0hn/digitarlopanel/contents/scripts/bootstrap.sh?ref=claude/server-admin-program-h026hq" \
+     -H "Accept: application/vnd.github.raw" | sudo DP_TOKEN="$GH" bash
+   ```
+3. **Deploy Key (SSH)** — das Skript klont per SSH und installiert die
+   vorgebaute Binary aus `dist/` (kein Build). Skript zuerst lokal speichern,
+   dann:
+   ```bash
+   sudo DP_SSH=1 DP_SSH_KEY=/home/ubuntu/.ssh/deploy_key bash bootstrap.sh
+   ```
+
+### Erreichbarkeit / Firewall (wichtig bei Oracle Cloud, AWS, …)
+
+Wenn der Dienst läuft (`systemctl status digitarlopanel` = *active*), du aber
+`ERR_CONNECTION_TIMED_OUT` im Browser bekommst, blockt die **Cloud-Firewall**.
+Bei Oracle Cloud sind **zwei** Ebenen zu öffnen:
+
+1. **VCN Security List / NSG** (in der Oracle-Konsole): Ingress-Regel hinzufügen
+   — Source `0.0.0.0/0`, Protokoll `TCP`, Ziel-Port `8088`.
+2. **Host-iptables** (Oracle-Ubuntu blockt per Default alles außer SSH). Das
+   Bootstrap-Skript öffnet den Port automatisch; manuell:
+   ```bash
+   sudo iptables -I INPUT 6 -p tcp --dport 8088 -j ACCEPT
+   sudo netfilter-persistent save   # dauerhaft speichern
+   ```
 
 ## Funktionen (aktueller Stand)
 
