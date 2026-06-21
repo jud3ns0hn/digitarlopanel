@@ -6,10 +6,21 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/model"
 )
+
+func splitLines(s string) []string {
+	s = strings.TrimRight(s, "\n")
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, "\n")
+}
+
+func splitTabs(s string) []string { return strings.Split(s, "\t") }
 
 // identPattern restricts database and user names to safe identifiers so they
 // can be interpolated into SQL without injection risk.
@@ -32,6 +43,41 @@ func (s *Server) handleDatabaseList(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, dbs)
+}
+
+type dbTable struct {
+	Name   string `json:"name"`
+	Rows   string `json:"rows"`
+	SizeMB string `json:"size_mb"`
+}
+
+// handleDatabaseTables lists the tables of a database with approximate row
+// counts and on-disk size (from information_schema). Read-only.
+func (s *Server) handleDatabaseTables(c *gin.Context) {
+	name := c.Query("name")
+	if !identPattern.MatchString(name) {
+		badRequest(c, "invalid database name")
+		return
+	}
+	// information_schema is queried with the name single-quoted (already an
+	// identifier, so doubly safe). Tab-separated, no header.
+	sql := fmt.Sprintf(
+		"SELECT table_name, table_rows, ROUND(((data_length+index_length)/1024/1024),2) "+
+			"FROM information_schema.tables WHERE table_schema='%s' ORDER BY (data_length+index_length) DESC;",
+		escapeSQLString(name))
+	out, err := s.runner.Run(c.Request.Context(), "mysql", "-N", "-B", "-e", sql)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": out.CombinedOutput()})
+		return
+	}
+	tables := []dbTable{}
+	for _, line := range splitLines(out.Stdout) {
+		f := splitTabs(line)
+		if len(f) >= 3 {
+			tables = append(tables, dbTable{Name: f[0], Rows: f[1], SizeMB: f[2]})
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"database": name, "tables": tables})
 }
 
 type databaseCreateRequest struct {

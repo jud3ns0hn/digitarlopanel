@@ -76,6 +76,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 
 	// Databases (MySQL/MariaDB).
 	read.GET("/databases", s.handleDatabaseList)
+	read.GET("/databases/tables", s.handleDatabaseTables)
 	write.POST("/databases", s.handleDatabaseCreate)
 	write.DELETE("/databases/:id", s.handleDatabaseDelete)
 

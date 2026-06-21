@@ -10,12 +10,27 @@
       <el-table-column prop="name" label="Name" />
       <el-table-column prop="username" label="Benutzer" />
       <el-table-column prop="charset" label="Charset" width="120" />
-      <el-table-column label="Aktionen" width="160">
+      <el-table-column label="Aktionen" width="220" align="right">
         <template #default="{ row }">
+          <el-button link type="primary" @click="openTables(row)">Tabellen</el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <el-drawer v-model="tablesDrawer.visible" :title="`Tabellen: ${tablesDrawer.name}`" size="560px" @open="loadTables">
+      <el-skeleton v-if="tablesLoading" :rows="5" animated />
+      <template v-else>
+        <el-empty v-if="!tables.length" description="Keine Tabellen in dieser Datenbank" />
+        <el-table v-else :data="tables" size="small">
+          <el-table-column prop="name" label="Tabelle" />
+          <el-table-column prop="rows" label="Zeilen (≈)" width="120" align="right" />
+          <el-table-column label="Größe" width="120" align="right">
+            <template #default="{ row }">{{ row.size_mb }} MB</template>
+          </el-table-column>
+        </el-table>
+      </template>
+    </el-drawer>
 
     <el-dialog v-model="dialog.visible" title="Neue Datenbank" width="480px">
       <el-form label-width="120px">
@@ -42,6 +57,28 @@ const dbs = ref<any[]>([])
 const loading = ref(false)
 const saving = ref(false)
 const dialog = reactive({ visible: false, name: '', username: '', password: '' })
+
+const tablesDrawer = reactive({ visible: false, name: '' })
+const tables = ref<any[]>([])
+const tablesLoading = ref(false)
+
+function openTables(row: any) {
+  tablesDrawer.name = row.name
+  tables.value = []
+  tablesDrawer.visible = true
+}
+
+async function loadTables() {
+  tablesLoading.value = true
+  try {
+    const { data } = await http.get('/databases/tables', { params: { name: tablesDrawer.name } })
+    tables.value = data.tables || []
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'Konnte Tabellen nicht laden')
+  } finally {
+    tablesLoading.value = false
+  }
+}
 
 async function load() {
   loading.value = true
