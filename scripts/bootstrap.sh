@@ -128,7 +128,8 @@ print_summary() {
   local ip pw
   ip="$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')"
   sleep 1
-  pw="$(journalctl -u digitarlopanel --no-pager 2>/dev/null | grep -m1 'Password:' | awk '{print $2}' || true)"
+  # Take the token AFTER "Password:" (journalctl prefixes each line with a date).
+  pw="$(journalctl -u digitarlopanel --no-pager 2>/dev/null | sed -n 's/.*Password:[[:space:]]*//p' | head -n1 || true)"
   cat <<EOF
 
 ============================================================
