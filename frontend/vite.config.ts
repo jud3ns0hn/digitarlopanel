@@ -8,6 +8,20 @@ export default defineConfig({
   build: {
     outDir: '../backend/web/dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        // Split the heaviest libraries into their own chunks. This keeps any
+        // single chunk small, which lowers the build's peak memory use and
+        // helps it finish on low-RAM VPSes.
+        manualChunks: {
+          echarts: ['echarts'],
+          'element-plus': ['element-plus', '@element-plus/icons-vue'],
+          xterm: ['@xterm/xterm', '@xterm/addon-fit'],
+          vue: ['vue', 'vue-router', 'pinia'],
+        },
+      },
+    },
   },
   server: {
     proxy: {

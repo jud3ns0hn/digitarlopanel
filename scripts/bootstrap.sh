@@ -1,30 +1,37 @@
 #!/usr/bin/env bash
 #
-# DigitarloPanel one-command bootstrap.
+# DigitarloPanel one-command installer.
 #
-# Run on a fresh VPS (Ubuntu/Debian or RHEL/Rocky/CentOS/Alma) as root. It
-# installs all build dependencies, builds the self-contained binary from source,
-# installs it as a systemd service, opens the firewall and prints the generated
-# admin password.
+# Run on a fresh VPS (Ubuntu/Debian or RHEL/Rocky/CentOS/Alma) as root. By
+# default it DOWNLOADS a prebuilt, self-contained binary (no Go/Node, no build)
+# and installs it as a systemd service in seconds — this is the recommended path
+# and cannot exhaust memory on small VPSes.
 #
-# Quick start (clones the repo automatically):
+# Quick start:
 #   curl -fsSL https://raw.githubusercontent.com/jud3ns0hn/digitarlopanel/claude/server-admin-program-h026hq/scripts/bootstrap.sh | sudo bash
 #
-# Or from a local checkout:
-#   sudo bash scripts/bootstrap.sh
+# Build from source instead of downloading (needs more RAM; adds swap if low):
+#   ... | sudo DP_BUILD=1 bash
 #
 # Tunables (environment variables):
-#   DP_PORT=8088           panel port
-#   DP_BRANCH=...          git branch to build
-#   DP_REPO=<url>          git URL to clone
-#   DP_SRC=/opt/...        where to clone/build
+#   DP_PORT=8088     panel port
+#   DP_BRANCH=...    git branch for downloads / source build
+#   DP_REPO=<url>    git URL (source build)
+#   DP_BUILD=1       force building from source
+#   DP_SRC=/opt/...  where to clone for a source build
 #
 set -euo pipefail
 
-REPO_URL="${DP_REPO:-https://github.com/jud3ns0hn/digitarlopanel.git}"
 BRANCH="${DP_BRANCH:-claude/server-admin-program-h026hq}"
+REPO_SLUG="${DP_REPO_SLUG:-jud3ns0hn/digitarlopanel}"
+REPO_URL="${DP_REPO:-https://github.com/${REPO_SLUG}.git}"
+RAW_BASE="${DP_RAW_BASE:-https://raw.githubusercontent.com/${REPO_SLUG}/${BRANCH}}"
 PORT="${DP_PORT:-8088}"
 SRC_DIR="${DP_SRC:-/opt/digitarlopanel-src}"
+INSTALL_DIR="/usr/local/bin"
+CONFIG_DIR="/etc/digitarlopanel"
+DATA_DIR="/var/lib/digitarlopanel"
+SERVICE="/etc/systemd/system/digitarlopanel.service"
 GO_MIN="1.25.0"
 NODE_MAJOR="20"
 
@@ -44,145 +51,204 @@ if [[ -r /etc/os-release ]]; then
   esac
 fi
 [[ "$FAMILY" != "unknown" ]] || die "Unsupported distribution (need Debian/Ubuntu or RHEL/Rocky/CentOS/Alma)."
-log "Detected distribution family: $FAMILY"
 
-# --- package helpers --------------------------------------------------------
+# --- detect CPU arch --------------------------------------------------------
+case "$(uname -m)" in
+  x86_64|amd64)  ARCH="amd64" ;;
+  aarch64|arm64) ARCH="arm64" ;;
+  *) die "Unsupported CPU architecture: $(uname -m)" ;;
+esac
+log "Distribution: $FAMILY ($ARCH)"
+
 pkg_install() {
   if [[ "$FAMILY" == "debian" ]]; then
     DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
-  else
-    if command -v dnf >/dev/null 2>&1; then dnf install -y "$@"; else yum install -y "$@"; fi
+  elif command -v dnf >/dev/null 2>&1; then dnf install -y "$@"; else yum install -y "$@"; fi
+}
+
+install_service() {
+  local binary="$1"
+  log "Installing binary to $INSTALL_DIR/digitarlopanel"
+  install -m 0755 "$binary" "$INSTALL_DIR/digitarlopanel"
+  mkdir -p "$CONFIG_DIR" "$DATA_DIR"
+  chmod 0750 "$CONFIG_DIR" "$DATA_DIR"
+
+  log "Writing systemd unit"
+  cat > "$SERVICE" <<EOF
+[Unit]
+Description=DigitarloPanel server administration
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=$INSTALL_DIR/digitarlopanel -config $CONFIG_DIR/config.json -listen :$PORT
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  systemctl daemon-reload
+  systemctl enable --now digitarlopanel
+}
+
+open_firewall() {
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    log "Opening port $PORT in ufw"; ufw allow "${PORT}/tcp" || warn "ufw rule failed"
+  elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    log "Opening port $PORT in firewalld"
+    firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || warn "firewalld rule failed"
+    firewall-cmd --reload >/dev/null 2>&1 || true
   fi
 }
 
-log "Refreshing package metadata"
-if [[ "$FAMILY" == "debian" ]]; then
-  DEBIAN_FRONTEND=noninteractive apt-get update -y
-fi
-
-log "Installing base build tools"
-if [[ "$FAMILY" == "debian" ]]; then
-  pkg_install ca-certificates curl git tar gzip build-essential
-else
-  pkg_install ca-certificates curl git tar gzip gcc gcc-c++ make
-fi
-
-# --- version compare (a >= b) ----------------------------------------------
-version_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" ]]; }
-
-# --- ensure a recent Go (distro packages are too old for go.mod) ------------
-ensure_go() {
-  if command -v go >/dev/null 2>&1; then
-    local cur; cur="$(go version | awk '{print $3}' | sed 's/^go//')"
-    if version_ge "$cur" "$GO_MIN"; then
-      log "Go $cur already present (>= $GO_MIN)"; return
-    fi
-    warn "Go $cur is older than $GO_MIN — installing a newer toolchain"
-  fi
-  local goarch
-  case "$(uname -m)" in
-    x86_64|amd64) goarch="amd64" ;;
-    aarch64|arm64) goarch="arm64" ;;
-    *) die "Unsupported CPU architecture for Go: $(uname -m)" ;;
-  esac
-  local gover
-  gover="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1 || true)"
-  [[ "$gover" == go* ]] || gover="go1.25.4"
-  log "Installing $gover ($goarch) from go.dev"
-  curl -fsSL "https://go.dev/dl/${gover}.linux-${goarch}.tar.gz" -o /tmp/go.tar.gz
-  rm -rf /usr/local/go
-  tar -C /usr/local -xzf /tmp/go.tar.gz
-  rm -f /tmp/go.tar.gz
-  export PATH="/usr/local/go/bin:$PATH"
-  # Persist for future shells.
-  echo 'export PATH=/usr/local/go/bin:$PATH' > /etc/profile.d/go.sh
-  go version
-}
-
-# --- ensure a modern Node.js (for the Vite build) ---------------------------
-ensure_node() {
-  if command -v node >/dev/null 2>&1; then
-    local major; major="$(node -v | sed 's/^v//' | cut -d. -f1)"
-    if [[ "${major:-0}" -ge 18 ]]; then
-      log "Node.js $(node -v) already present"; return
-    fi
-    warn "Node.js $(node -v) is too old — installing Node $NODE_MAJOR"
-  fi
-  log "Installing Node.js $NODE_MAJOR via NodeSource"
-  if [[ "$FAMILY" == "debian" ]]; then
-    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
-    pkg_install nodejs
-  else
-    curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
-    pkg_install nodejs
-  fi
-  node -v
-}
-
-ensure_go
-ensure_node
-export PATH="/usr/local/go/bin:$PATH"
-
-# --- locate source (use local checkout if present, else clone) --------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
-if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../backend/go.mod" ]]; then
-  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-  log "Building from local checkout: $REPO_ROOT"
-else
-  if [[ -d "$SRC_DIR/.git" ]]; then
-    log "Updating existing checkout in $SRC_DIR"
-    git -C "$SRC_DIR" fetch --depth 1 origin "$BRANCH"
-    git -C "$SRC_DIR" checkout "$BRANCH"
-    git -C "$SRC_DIR" reset --hard "origin/$BRANCH"
-  else
-    log "Cloning $REPO_URL ($BRANCH) into $SRC_DIR"
-    git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$SRC_DIR"
-  fi
-  REPO_ROOT="$SRC_DIR"
-fi
-
-# --- build ------------------------------------------------------------------
-log "Building frontend and backend (this can take a few minutes)"
-make -C "$REPO_ROOT" build
-
-BINARY="$REPO_ROOT/digitarlopanel"
-[[ -x "$BINARY" ]] || die "Build did not produce a binary at $BINARY"
-
-# --- install as systemd service ---------------------------------------------
-log "Installing binary and systemd service"
-DP_PORT="$PORT" bash "$REPO_ROOT/scripts/install.sh" "$BINARY"
-
-# --- open firewall (best effort) --------------------------------------------
-if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-  log "Opening port $PORT in ufw"
-  ufw allow "${PORT}/tcp" || warn "ufw rule failed"
-elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
-  log "Opening port $PORT in firewalld"
-  firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 || warn "firewalld rule failed"
-  firewall-cmd --reload >/dev/null 2>&1 || true
-fi
-
-# --- summary ----------------------------------------------------------------
-IP="$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')"
-sleep 1
-PW="$(journalctl -u digitarlopanel --no-pager 2>/dev/null | grep -m1 'Password:' | awk '{print $2}' || true)"
-
-cat <<EOF
+print_summary() {
+  local ip pw
+  ip="$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')"
+  sleep 1
+  pw="$(journalctl -u digitarlopanel --no-pager 2>/dev/null | grep -m1 'Password:' | awk '{print $2}' || true)"
+  cat <<EOF
 
 ============================================================
  DigitarloPanel is installed and running.
 
-   URL:       http://${IP:-<server-ip>}:${PORT}
+   URL:       http://${ip:-<server-ip>}:${PORT}
    Username:  admin
-   Password:  ${PW:-<see command below>}
+   Password:  ${pw:-<see command below>}
 
- If the password is not shown above, run:
+ If the password is not shown, run:
    journalctl -u digitarlopanel --no-pager | grep -A2 'first run'
 
  Manage the service:
    systemctl status digitarlopanel
    systemctl restart digitarlopanel
-
- Change the admin password after your first login.
 ============================================================
 EOF
+}
+
+# ============================================================================
+#  FAST PATH: download a prebuilt binary (default)
+# ============================================================================
+download_install() {
+  command -v curl >/dev/null 2>&1 || pkg_install curl ca-certificates
+  command -v gzip >/dev/null 2>&1 || pkg_install gzip
+
+  local url="${RAW_BASE}/dist/digitarlopanel-linux-${ARCH}.gz"
+  local tmp; tmp="$(mktemp -d)"
+  log "Downloading prebuilt binary ($ARCH)"
+  if ! curl -fSL --retry 3 -o "$tmp/dp.gz" "$url"; then
+    rm -rf "$tmp"; return 1
+  fi
+
+  # Verify checksum if the manifest is reachable (best effort).
+  if curl -fsSL --retry 2 -o "$tmp/SHA256SUMS" "${RAW_BASE}/dist/SHA256SUMS" 2>/dev/null; then
+    local want got
+    want="$(grep "digitarlopanel-linux-${ARCH}.gz" "$tmp/SHA256SUMS" | awk '{print $1}')"
+    got="$(sha256sum "$tmp/dp.gz" | awk '{print $1}')"
+    if [[ -n "$want" && "$want" != "$got" ]]; then
+      rm -rf "$tmp"; die "Checksum mismatch for downloaded binary — aborting."
+    fi
+    log "Checksum verified"
+  fi
+
+  gzip -d "$tmp/dp.gz"
+  chmod +x "$tmp/dp"
+  install_service "$tmp/dp"
+  rm -rf "$tmp"
+}
+
+# ============================================================================
+#  SOURCE BUILD (fallback / DP_BUILD=1): adds swap, builds, installs
+# ============================================================================
+version_ge() { [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" ]]; }
+
+ensure_swap() {
+  # The frontend build is memory hungry; on < 2 GB RAM add a temporary swapfile
+  # so the build cannot OOM-kill the box (which can also drop your SSH session).
+  local mem_kb swap_kb
+  mem_kb="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+  swap_kb="$(awk '/SwapTotal/{print $2}' /proc/meminfo)"
+  if (( mem_kb < 2100000 && swap_kb < 1000000 )); then
+    if [[ ! -f /swapfile ]]; then
+      log "Low RAM detected — creating a 2G swapfile to protect the build"
+      if fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none; then
+        chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile || warn "swap setup failed"
+      fi
+    fi
+  fi
+}
+
+ensure_go() {
+  if command -v go >/dev/null 2>&1; then
+    local cur; cur="$(go version | awk '{print $3}' | sed 's/^go//')"
+    version_ge "$cur" "$GO_MIN" && { log "Go $cur present"; return; }
+  fi
+  local gover; gover="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1 || true)"
+  [[ "$gover" == go* ]] || gover="go1.25.4"
+  log "Installing $gover ($ARCH)"
+  curl -fsSL "https://go.dev/dl/${gover}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
+  rm -rf /usr/local/go && tar -C /usr/local -xzf /tmp/go.tar.gz && rm -f /tmp/go.tar.gz
+  export PATH="/usr/local/go/bin:$PATH"
+  echo 'export PATH=/usr/local/go/bin:$PATH' > /etc/profile.d/go.sh
+}
+
+ensure_node() {
+  if command -v node >/dev/null 2>&1; then
+    local major; major="$(node -v | sed 's/^v//' | cut -d. -f1)"
+    (( ${major:-0} >= 18 )) && { log "Node.js $(node -v) present"; return; }
+  fi
+  log "Installing Node.js $NODE_MAJOR via NodeSource"
+  if [[ "$FAMILY" == "debian" ]]; then
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - ; pkg_install nodejs
+  else
+    curl -fsSL "https://rpm.nodesource.com/setup_${NODE_MAJOR}.x" | bash - ; pkg_install nodejs
+  fi
+}
+
+source_build() {
+  log "Building from source"
+  if [[ "$FAMILY" == "debian" ]]; then
+    DEBIAN_FRONTEND=noninteractive apt-get update -y
+    pkg_install ca-certificates curl git tar gzip build-essential
+  else
+    pkg_install ca-certificates curl git tar gzip gcc gcc-c++ make
+  fi
+  ensure_swap
+  ensure_go
+  ensure_node
+  export PATH="/usr/local/go/bin:$PATH"
+
+  local root
+  local sd; sd="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
+  if [[ -n "$sd" && -f "$sd/../backend/go.mod" ]]; then
+    root="$(cd "$sd/.." && pwd)"
+  else
+    if [[ -d "$SRC_DIR/.git" ]]; then
+      git -C "$SRC_DIR" fetch --depth 1 origin "$BRANCH"
+      git -C "$SRC_DIR" reset --hard "origin/$BRANCH"
+    else
+      git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$SRC_DIR"
+    fi
+    root="$SRC_DIR"
+  fi
+
+  # Cap Node heap and skip type-checking for a lighter, faster production build.
+  export NODE_OPTIONS="--max-old-space-size=1024"
+  ( cd "$root/frontend" && npm install --no-audit --no-fund && npm run build )
+  ( cd "$root/backend" && CGO_ENABLED=0 go build -ldflags "-s -w" -o "$root/digitarlopanel" ./cmd/digitarlopanel )
+  [[ -x "$root/digitarlopanel" ]] || die "Build did not produce a binary"
+  install_service "$root/digitarlopanel"
+}
+
+# --- dispatch ---------------------------------------------------------------
+if [[ "${DP_BUILD:-0}" == "1" ]]; then
+  source_build
+else
+  if ! download_install; then
+    warn "Prebuilt download failed — falling back to building from source"
+    source_build
+  fi
+fi
+
+open_firewall
+print_summary

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/glebarez/sqlite"
 	"github.com/jud3ns0hn/digitarlopanel/backend/internal/model"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )

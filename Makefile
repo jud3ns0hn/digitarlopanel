@@ -4,10 +4,18 @@ BACKEND := backend
 FRONTEND := frontend
 VERSION ?= 0.1.0
 
-.PHONY: all build frontend backend dev test vet clean run
+.PHONY: all build frontend backend dev test vet clean run release
 
 ## build: build the frontend then the single self-contained binary
 build: frontend backend
+
+## release: build the frontend then portable, stripped linux binaries (amd64+arm64)
+## into dist/ with checksums. CGO-free, so cross-compiling needs no C toolchain.
+release: frontend
+	cd $(BACKEND) && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/dp-amd64 ./cmd/digitarlopanel
+	cd $(BACKEND) && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o ../dist/dp-arm64 ./cmd/digitarlopanel
+	cd dist && gzip -9 -c dp-amd64 > digitarlopanel-linux-amd64.gz && gzip -9 -c dp-arm64 > digitarlopanel-linux-arm64.gz && rm -f dp-amd64 dp-arm64
+	cd dist && sha256sum digitarlopanel-linux-amd64.gz digitarlopanel-linux-arm64.gz > SHA256SUMS
 
 ## frontend: install deps (if needed) and build the Vue app into backend/web/dist
 frontend:
