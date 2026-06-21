@@ -25,7 +25,8 @@ set -euo pipefail
 BRANCH="${DP_BRANCH:-claude/server-admin-program-h026hq}"
 REPO_SLUG="${DP_REPO_SLUG:-jud3ns0hn/digitarlopanel}"
 REPO_URL="${DP_REPO:-https://github.com/${REPO_SLUG}.git}"
-RAW_BASE="${DP_RAW_BASE:-https://raw.githubusercontent.com/${REPO_SLUG}/${BRANCH}}"
+# Use the refs/heads form so branch names containing a slash resolve correctly.
+RAW_BASE="${DP_RAW_BASE:-https://raw.githubusercontent.com/${REPO_SLUG}/refs/heads/${BRANCH}}"
 PORT="${DP_PORT:-8088}"
 SRC_DIR="${DP_SRC:-/opt/digitarlopanel-src}"
 INSTALL_DIR="/usr/local/bin"

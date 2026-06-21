@@ -12,7 +12,7 @@ baut das Panel, richtet den systemd-Dienst ein, öffnet die Firewall und zeigt
 das generierte Admin-Passwort an:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jud3ns0hn/digitarlopanel/claude/server-admin-program-h026hq/scripts/bootstrap.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/jud3ns0hn/digitarlopanel/refs/heads/claude/server-admin-program-h026hq/scripts/bootstrap.sh | sudo bash
 ```
 
 Optional anpassbar über Umgebungsvariablen, z.B. ein anderer Port:
