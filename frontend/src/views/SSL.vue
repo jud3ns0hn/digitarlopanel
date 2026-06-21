@@ -14,11 +14,28 @@
           <el-tag :type="row.type === 'letsencrypt' ? 'success' : 'warning'">{{ row.type }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Gültig bis" width="200">
-        <template #default="{ row }">{{ row.not_after ? new Date(row.not_after).toLocaleDateString() : '—' }}</template>
-      </el-table-column>
-      <el-table-column label="Aktionen" width="140">
+      <el-table-column label="Gültig bis" width="240">
         <template #default="{ row }">
+          <template v-if="row.not_after">
+            {{ new Date(row.not_after).toLocaleDateString() }}
+            <el-tag :type="daysTagType(row)" size="small" effect="light" style="margin-left: 6px">
+              {{ daysLeft(row) }} Tage
+            </el-tag>
+          </template>
+          <span v-else>—</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Aktionen" width="200" align="right">
+        <template #default="{ row }">
+          <el-button
+            v-if="row.type === 'letsencrypt'"
+            link
+            type="primary"
+            :loading="renewing === row.id"
+            @click="renew(row)"
+          >
+            Erneuern
+          </el-button>
           <el-button link type="danger" @click="remove(row)">Löschen</el-button>
         </template>
       </el-table-column>
@@ -58,8 +75,32 @@ import http from '../api/client'
 const certs = ref<any[]>([])
 const loading = ref(false)
 const issuing = ref(false)
+const renewing = ref<number | null>(null)
 const leDialog = reactive({ visible: false, domain: '', email: '' })
 const ssDialog = reactive({ visible: false, domain: '' })
+
+function daysLeft(row: any) {
+  return Math.max(0, Math.round((new Date(row.not_after).getTime() - Date.now()) / 86400000))
+}
+function daysTagType(row: any) {
+  const d = daysLeft(row)
+  if (d <= 7) return 'danger'
+  if (d <= 21) return 'warning'
+  return 'success'
+}
+
+async function renew(row: any) {
+  renewing.value = row.id
+  try {
+    await http.post(`/ssl/${row.id}/renew`)
+    ElMessage.success('Zertifikat erneuert')
+    await load()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.error || 'Erneuerung fehlgeschlagen')
+  } finally {
+    renewing.value = null
+  }
+}
 
 async function load() {
   loading.value = true

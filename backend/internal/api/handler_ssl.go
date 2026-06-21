@@ -104,6 +104,36 @@ func (s *Server) handleSSLSelfSigned(c *gin.Context) {
 	c.JSON(http.StatusOK, cert)
 }
 
+// handleSSLRenew re-issues a Let's Encrypt certificate on demand.
+func (s *Server) handleSSLRenew(c *gin.Context) {
+	var cert model.Certificate
+	if err := s.db.First(&cert, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "certificate not found"})
+		return
+	}
+	if cert.Type != "letsencrypt" || cert.Email == "" {
+		badRequest(c, "only Let's Encrypt certificates with a stored e-mail can be renewed")
+		return
+	}
+	var site model.Website
+	if err := s.db.Where("domain = ?", cert.Domain).First(&site).Error; err != nil {
+		badRequest(c, "website for this domain no longer exists")
+		return
+	}
+	issued, err := s.issuer.Obtain(cert.Email, []string{cert.Domain}, site.Root)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	updated := s.upsertCert(cert.Domain, "letsencrypt", cert.Email, issued.CertPath, issued.KeyPath)
+	if err := s.writeSiteVHost(c.Request.Context(), site); err != nil {
+		serverError(c, err)
+		return
+	}
+	s.audit(c, "ssl_renew", cert.Domain)
+	c.JSON(http.StatusOK, updated)
+}
+
 func (s *Server) handleSSLDelete(c *gin.Context) {
 	var cert model.Certificate
 	if err := s.db.First(&cert, c.Param("id")).Error; err != nil {

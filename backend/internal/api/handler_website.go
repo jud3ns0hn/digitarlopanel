@@ -81,9 +81,57 @@ func (s *Server) handleWebsiteList(c *gin.Context) {
 }
 
 type websiteCreateRequest struct {
-	Domain    string `json:"domain" binding:"required"`
-	Root      string `json:"root" binding:"required"`
-	ProxyPass string `json:"proxy_pass"`
+	Domain     string `json:"domain" binding:"required"`
+	Root       string `json:"root" binding:"required"`
+	ProxyPass  string `json:"proxy_pass"`
+	PHPVersion string `json:"php_version"`
+}
+
+// handleWebsiteDetail returns a site together with its certificate (if any) and
+// the resolved php-fpm socket, so the UI can show everything in one drawer.
+func (s *Server) handleWebsiteDetail(c *gin.Context) {
+	var site model.Website
+	if err := s.db.First(&site, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "website not found"})
+		return
+	}
+	resp := gin.H{"website": site}
+	var cert model.Certificate
+	if err := s.db.Where("domain = ?", site.Domain).First(&cert).Error; err == nil {
+		resp["certificate"] = cert
+	}
+	if site.PHPVersion != "" {
+		resp["php_socket"] = phpSocketFor(s.os.Family, site.PHPVersion)
+	}
+	resp["config_path"] = nginx.ConfPath(s.os.Family, site.Domain)
+	c.JSON(http.StatusOK, resp)
+}
+
+// handleWebsiteLogs tails a site's nginx access or error log.
+func (s *Server) handleWebsiteLogs(c *gin.Context) {
+	var site model.Website
+	if err := s.db.First(&site, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "website not found"})
+		return
+	}
+	kind := c.DefaultQuery("type", "access")
+	if kind != "access" && kind != "error" {
+		badRequest(c, "type must be access or error")
+		return
+	}
+	// nginx writes per-site logs as /var/log/nginx/<domain>.<kind>.log (see template).
+	path := "/var/log/nginx/" + site.Domain + "." + kind + ".log"
+	abs, err := resolvePath(logRoot, path)
+	if err != nil {
+		badRequest(c, "invalid log path")
+		return
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"content": "", "note": "noch keine Log-Einträge"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"content": tailLines(string(data), clampLines(c.Query("lines")))})
 }
 
 func (s *Server) handleWebsiteCreate(c *gin.Context) {
@@ -107,6 +155,13 @@ func (s *Server) handleWebsiteCreate(c *gin.Context) {
 	}
 
 	site := model.Website{Domain: req.Domain, Root: root, ProxyPass: req.ProxyPass, Enabled: true}
+	if req.PHPVersion != "" {
+		if !phpVersionPattern.MatchString(req.PHPVersion) {
+			badRequest(c, "invalid php version")
+			return
+		}
+		site.PHPVersion = req.PHPVersion
+	}
 	if err := s.db.Create(&site).Error; err != nil {
 		badRequest(c, "domain already exists or invalid")
 		return

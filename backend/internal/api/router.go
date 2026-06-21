@@ -60,6 +60,8 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 
 	// Websites.
 	read.GET("/websites", s.handleWebsiteList)
+	read.GET("/websites/:id", s.handleWebsiteDetail)
+	read.GET("/websites/:id/logs", s.handleWebsiteLogs)
 	write.POST("/websites", s.handleWebsiteCreate)
 	write.POST("/websites/:id/toggle", s.handleWebsiteToggle)
 	write.POST("/websites/:id/php", s.handleWebsitePHP)
@@ -103,6 +105,7 @@ func (s *Server) registerRoutes(api *gin.RouterGroup) {
 	read.GET("/ssl", s.handleSSLList)
 	write.POST("/ssl/issue", s.handleSSLIssue)
 	write.POST("/ssl/self-signed", s.handleSSLSelfSigned)
+	write.POST("/ssl/:id/renew", s.handleSSLRenew)
 	write.DELETE("/ssl/:id", s.handleSSLDelete)
 
 	// Docker.
